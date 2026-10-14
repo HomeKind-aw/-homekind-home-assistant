@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en-AU">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>HomeKind Home Connector</title><link rel="stylesheet" href="./setup.css"><script src="./setup.js" defer></script></head>
+<body><main>
+  <header><img src="./logo.png" alt="HomeKind"><span class="tag">Read-only pilot</span></header>
+  <h1>Your home, connected.</h1><p class="intro">Choose which sensor readings reach your HomeKind household.</p>
+  <section class="status" aria-label="Connection status"><strong id="connection">Getting ready…</strong><p id="status-message" role="status"></p></section>
+  <form id="setup">
+    <section class="card"><div class="step">1 · Connect your household</div><h2>Pair with HomeKind</h2><p>In HomeKind, open <b>Admin → Devices → Connect Home Assistant</b>, then copy the pairing code.</p><label for="pairing">Pairing code</label><input id="pairing" name="pairing_code" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" placeholder="Paste your pairing code"><small id="pairing-hint">The code lasts 10 minutes. Create it once this app is installed.</small></section>
+    <section class="card"><div class="step">2 · Choose your readings</div><h2>Select sensors</h2><p>Only selected, supported sensor and device states are shared. Lights and plugs are read without controlling them.</p><label for="search">Find a sensor</label><input id="search" type="search" placeholder="Name or entity ID" autocomplete="off"><div class="selection-bar"><span id="selected-count">0 selected</span><button type="button" id="reload">Reload sensors</button></div><div id="entities" class="entities"><p>Loading your Home Assistant sensors…</p></div><p id="list-note" class="hint"></p></section>
+    <div id="error" role="alert" hidden></div><button id="save" class="primary" type="submit" disabled>Connect household</button>
+    <p class="footnote">After connecting, return to HomeKind → Admin → Devices to add each selected sensor and assign its room. No Home Assistant password is entered into HomeKind.</p>
+  </form>
+</main></body></html>

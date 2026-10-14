@@ -1,0 +1,41 @@
+HOMEKIND PILOT COMMISSIONING RECORD — 14 OCTOBER 2026
+Actual Green / physical devices: NOT YET VERIFIED
+Record only measured local results. Do not paste credentials into this record.
+
+Owner account / MFA completed: __________ Date: __________
+Resident coverage and family permissions agreed: __________
+Pilot household created through signed-in owner flow: __________
+Updated saved pilot model imported and room labels checked: __________
+Connector 0.2.0 installed / read_only=true / Start on boot: __________
+Green restart / connector restart / HA restart recovery: __________
+
+For each device, fill in actual entity ID, model room name, result and measured times.
+1 FP300 presence — entity: ______ room: ______ physical action: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
+2 Door contact — entity: ______ room: ______ open/close: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
+3 Leak — entity: ______ room: ______ safe test/reset: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
+4 Tapo P110 watts — entity: ______ room: ______ change: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
+5 Aqara T2 bulb state — entity: ______ room: ______ local change: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
+Optional P1 motion / temperature / humidity / FP2: ______________________
+
+Device inventory reflects physical placements; no room assignment is inferred from a generic Living room name.
+
+FAILURE AND ACCESS CHECKS
+Stop connector → last-known/stale after 45 seconds + app refresh: ______
+Safe Ethernet / internet interruption → no all-clear inference: ______
+Reconnect → fresh snapshot, timestamps, no duplicate timeline events: ______
+Local allowlist excludes all unchosen entities: ______
+Read-only mode shows no HomeKind On/Off controls: ______
+Owner sees only this pilot's readings: ______
+Room-limited family account sees only granted rooms: ______
+Different household account sees none: ______
+Stop connection revokes further sync: ______
+iPhone layout / iPad layout: ______
+Local logs contain no raw tokens or unnecessary sensor history: ______
+
+Record actual measured latencies (at least three changes per device).
+Any quiet sensor's old state-change time must remain distinct from its most recent live check.
+No motion does not establish that a room is empty.
+The bounded outage queue retains the latest state, not every transition.
+
+Outstanding items / owner decisions / commissioning sign-off:
+_____________________________________________________________
