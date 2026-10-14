@@ -7,12 +7,12 @@ An installable Home Assistant app for the HomeKind pilot. Setup opens inside Hom
 The connector repository is public so Home Assistant can download and install it directly from your phone. The HomeKind portal, database, household data and credentials remain private. You do not need a GitHub sign-in to install the connector.
 
 1. Open Home Assistant using an administrator account.
-2. In HomeKind, open **Admin → Devices → Connect Home Assistant → Add HomeKind to Home Assistant**. Alternatively, open Home Assistant's **Settings → Apps → App store → ⋮ → Repositories** and add `https://github.com/HomeKind-aw/-homekind-home-assistant`. Earlier Home Assistant versions call Apps **Add-ons**.
+2. In HomeKind, open **Settings → Devices → Connect Home Assistant → Add HomeKind to Home Assistant**. Alternatively, open Home Assistant's **Settings → Apps → App store → ⋮ → Repositories** and add `https://github.com/HomeKind-aw/-homekind-home-assistant`. Earlier Home Assistant versions call Apps **Add-ons**.
 3. Install **HomeKind Home Connector**, enable **Start on boot**, and start it. The first installation builds the pinned container on your Green and needs internet. No pairing code is needed to start the setup screen.
 4. Tap **Open Web UI**. Leave this screen ready on your phone.
-5. Open your HomeKind household, then **Admin → Devices → Connect Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
+5. Open your HomeKind household, then **Settings → Devices → Connect Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
 6. Return to the HomeKind Web UI inside Home Assistant. Paste the code, tick your intended sensors or device states, then tap **Connect household**. No file copying, terminal command or Home Assistant password is needed for this route.
-7. In HomeKind → **Admin → Devices → Add device**, add each discovered sensor and select its room. Exact area-name matches can suggest a room; confirm the actual room before saving.
+7. In HomeKind → **Settings → Devices → Add device**, add each discovered sensor and select its room. Exact area-name matches can suggest a room; confirm the actual room before saving.
 
 For an optional computer-based local install, copy `homekind_bridge` into Home Assistant's `local_apps` directory, refresh the App store and install it under Local apps. Use **Open Web UI** for the same setup steps.
 
@@ -24,7 +24,7 @@ After updating to 0.3.0, open **Web UI** to manage the sensor selection. That sc
 
 ## Household and room setup
 
-Use your own private ChatGPT sign-in for HomeKind. The named pilot testing account does not require an authenticator; other accounts retain their normal checks. Create or open your household with its actual time zone. In **Admin → Rooms & plan**, import the saved pilot if needed. **Rename** keeps a room's identity, model mapping and device assignments. **Delete** removes the room from home views, ends its scoped access and open invitations, and moves devices to Unassigned with controls disabled. The model and historical records are retained.
+Use your own private ChatGPT sign-in for HomeKind. The named pilot testing account does not require an authenticator; other accounts retain their normal checks. Create or open your household with its actual time zone. In **Settings → Rooms & plan**, import the saved pilot if needed. **Rename** keeps a room's identity, model mapping and device assignments. **Delete** removes the room from home views, ends its scoped access and open invitations, and moves devices to Unassigned with controls disabled. The model and historical records are retained.
 
 Choose the intended coverage with the resident before enabling it. History, notifications and routines are separate choices; the connector does not turn them on. Readings describe sensors, without identifying a person or proving that a room is empty.
 

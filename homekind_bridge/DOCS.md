@@ -5,19 +5,19 @@ An installable Home Assistant app for the HomeKind pilot. Setup opens inside Hom
 ## Install from the Home Assistant App store
 
 1. Open Home Assistant using an administrator account.
-2. Open **Settings → Apps → App store → ⋮ → Repositories** and add the URL of this GitHub repository. Earlier Home Assistant versions call Apps **Add-ons**. HomeKind's **Admin → Devices → Connect Home Assistant** screen will show the repository link once it has been published.
+2. Open **Settings → Apps → App store → ⋮ → Repositories** and add the URL of this GitHub repository. Earlier Home Assistant versions call Apps **Add-ons**. HomeKind's **Settings → Devices → Connect Home Assistant** screen will show the repository link once it has been published.
 3. Install **HomeKind Home Connector**, enable **Start on boot**, and start it. The first installation builds the pinned container on your Green and needs internet. No pairing code is needed to start the setup screen.
 4. Tap **Open Web UI**. Leave this screen ready on your phone.
-5. Open your HomeKind household, then **Admin → Devices → Connect Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
+5. Open your HomeKind household, then **Settings → Devices → Connect Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
 6. Return to the HomeKind Web UI inside Home Assistant. Paste the code, tick your intended sensors or device states, then tap **Connect household**. No file copying, terminal command or Home Assistant password is needed for this route.
-7. In HomeKind → **Admin → Devices → Add device**, add each discovered sensor and select its room. Exact area-name matches can suggest a room; confirm the actual room before saving.
+7. In HomeKind → **Settings → Devices → Add device**, add each discovered sensor and select its room. Exact area-name matches can suggest a room; confirm the actual room before saving.
 
 If GitHub publication has not completed, this package is still suitable for a computer-based local install: copy `homekind_bridge` into Home Assistant's `local_apps` directory, refresh the App store and install it under Local apps. Use **Open Web UI** for the same setup steps. This local-file route requires a computer; it is not the phone installation route.
 
 
 ## 4. Map the discovered entities to the existing rooms
 
-In HomeKind → Admin → Devices → Add device, choose a discovered entity, confirm its type and name, choose its actual room from the imported plan and save it as Paired. Repeat for the five required entities. Exact HA area-name matches can suggest a room; the owner confirms the assignment by saving. Areas that do not exactly match, including an ambiguous Living room, require manual selection.
+In HomeKind → Settings → Devices → Add device, choose a discovered entity, confirm its type and name, choose its actual room from the imported plan and save it as Paired. Repeat for the five required entities. Exact HA area-name matches can suggest a room; the owner confirms the assignment by saving. Areas that do not exactly match, including an ambiguous Living room, require manual selection.
 
 Home Assistant unique ID, platform, device ID and area are retained when the local account allows registry reads. These are setup identifiers, not permission authority. Registry access may be unavailable for a non-admin HA user; entity IDs still work. Renaming an entity requires reviewing and saving its binding in HomeKind and updating the local allowlist. No automatic reassignment to another room is performed. Do not mark a device Tested or Active until the local checks below pass.
 
