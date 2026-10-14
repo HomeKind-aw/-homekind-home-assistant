@@ -3,6 +3,7 @@ name: Verify HomeKind connector
 on:
   push:
     branches: [main]
+    paths: ['homekind_bridge/**', 'tests/**', '.github/workflows/verify.yml']
   pull_request:
   workflow_dispatch:
 

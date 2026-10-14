@@ -38,3 +38,5 @@ Choose the intended coverage with the resident before enabling it. History, noti
 - Run the physical checks in `PILOT_ACCEPTANCE.txt`. Automated software checks do not commission your actual Green, sensors, iPhone or iPad.
 
 Detailed behaviour and local computer instructions are in [DOCS.md](homekind_bridge/DOCS.md). The repository has no household floor plan, account data or service-role key.
+
+Bundled Inter and Nunito fonts retain their SIL Open Font License notices in `homekind_bridge/OFL-Inter.txt` and `homekind_bridge/OFL-Nunito.txt`, including inside the built app container.
