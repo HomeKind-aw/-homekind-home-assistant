@@ -4,17 +4,17 @@ An installable Home Assistant app for the HomeKind pilot. Setup opens inside Hom
 
 ## Install from the Home Assistant App store
 
-The pilot repository is currently private. A private repository cannot be added using Home Assistant's standard App store repository link. Use the computer-based local install below while keeping the source private. The phone route becomes available after this connector repository is made public; the HomeKind portal, database and household data remain private.
+The connector repository is public so Home Assistant can download and install it directly from your phone. The HomeKind portal, database, household data and credentials remain private. You do not need a GitHub sign-in to install the connector.
 
 1. Open Home Assistant using an administrator account.
-2. Open **Settings → Apps → App store → ⋮ → Repositories** and add the URL of this GitHub repository. Earlier Home Assistant versions call Apps **Add-ons**. HomeKind's **Admin → Devices → Connect Home Assistant** screen will show the repository link once it has been published.
+2. In HomeKind, open **Admin → Devices → Connect Home Assistant → Add HomeKind to Home Assistant**. Alternatively, open Home Assistant's **Settings → Apps → App store → ⋮ → Repositories** and add `https://github.com/HomeKind-aw/-homekind-home-assistant`. Earlier Home Assistant versions call Apps **Add-ons**.
 3. Install **HomeKind Home Connector**, enable **Start on boot**, and start it. The first installation builds the pinned container on your Green and needs internet. No pairing code is needed to start the setup screen.
 4. Tap **Open Web UI**. Leave this screen ready on your phone.
 5. Open your HomeKind household, then **Admin → Devices → Connect Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
 6. Return to the HomeKind Web UI inside Home Assistant. Paste the code, tick your intended sensors or device states, then tap **Connect household**. No file copying, terminal command or Home Assistant password is needed for this route.
 7. In HomeKind → **Admin → Devices → Add device**, add each discovered sensor and select its room. Exact area-name matches can suggest a room; confirm the actual room before saving.
 
-If GitHub publication has not completed, this package is still suitable for a computer-based local install: copy `homekind_bridge` into Home Assistant's `local_apps` directory, refresh the App store and install it under Local apps. Use **Open Web UI** for the same setup steps. This local-file route requires a computer; it is not the phone installation route.
+For an optional computer-based local install, copy `homekind_bridge` into Home Assistant's `local_apps` directory, refresh the App store and install it under Local apps. Use **Open Web UI** for the same setup steps.
 
 ## Update an existing installation
 
