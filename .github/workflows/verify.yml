@@ -44,7 +44,7 @@ jobs:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
           docker buildx build --platform "$TARGET_PLATFORM" --load \
-            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.3.0 \
+            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.3.1 \
             --tag homekind-connector:verify ./homekind_bridge
       - name: Verify runtime and run software checks in the built container
         env:
@@ -57,3 +57,17 @@ jobs:
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" \
             --workdir /workspace --entrypoint /opt/bridge/bin/python \
             homekind-connector:verify -m unittest discover -s tests -p 'test_home*.py' -q
+      - name: Verify normal startup with the Supervisor environment
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          docker run -d --name homekind-startup --platform "$TARGET_PLATFORM" \
+            -e SUPERVISOR_TOKEN=synthetic-startup-test-only homekind-connector:verify
+          trap 'docker logs homekind-startup; docker rm -f homekind-startup' EXIT
+          for attempt in $(seq 1 30); do
+            if docker exec homekind-startup /opt/bridge/bin/python -c 'import http.client; c=http.client.HTTPConnection("127.0.0.1",8099,timeout=2); c.request("GET","/"); r=c.getresponse(); assert r.status == 403, r.status'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
