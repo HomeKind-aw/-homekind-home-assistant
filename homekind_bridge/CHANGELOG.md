@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 16 October 2026
+
+- Add an explicit local switch for light and plug controls; read-only remains the default.
+- Keep current pairing and selected devices when changing control mode.
+- Recommend useful readings, add bulk selection, and keep other supported settings optional.
+- Include Home Assistant entity categories for HomeKind display defaults.
+
+
 ## 0.3.1 — 15 October 2026
 
 - Restore the Supervisor environment when starting under s6 so the setup screen can open on Home Assistant Green.

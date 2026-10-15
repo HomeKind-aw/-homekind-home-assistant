@@ -46,8 +46,8 @@ class SetupManager:
             options = json.loads(path.read_text())
             if not isinstance(options, dict):
                 raise SetupError("The saved settings need to be checked locally.")
-            # The phone setup path is always read-only.
-            return {"read_only": True, "entity_ids": options.get("entity_ids", []), "pairing_code": options.get("pairing_code", "")}
+            # Local Home Assistant administrators choose whether commands are allowed.
+            return {"read_only": options.get("read_only", True) is not False, "entity_ids": options.get("entity_ids", []), "pairing_code": options.get("pairing_code", "")}
 
     def paired(self):
         if not self.credentials.exists():
@@ -77,8 +77,11 @@ class SetupManager:
         return result[:4000]
 
     def configure(self, data):
-        if not isinstance(data, dict) or set(data) - {"pairing_code", "entity_ids"}:
+        if not isinstance(data, dict) or set(data) - {"pairing_code", "entity_ids", "read_only"}:
             raise SetupError("Check the pairing code and selected sensors.")
+        if "read_only" in data and not isinstance(data["read_only"], bool):
+            raise SetupError("Choose whether device controls are allowed.")
+        read_only = data.get("read_only", self.options()["read_only"])
         entities = data.get("entity_ids")
         if not isinstance(entities, list) or not 0 <= len(entities) <= 250 or any(not isinstance(entity, str) or not ENTITY.fullmatch(entity) for entity in entities):
             raise SetupError("Choose between 1 and 250 supported sensors or device states.")
@@ -98,7 +101,7 @@ class SetupManager:
         if not pairing and (not self.paired() or self.phase == "pairing_required"):
             raise SetupError("Create a pairing code in HomeKind, then paste it here.")
         with self.lock:
-            atomic_json(self.settings, {"pairing_code": pairing, "entity_ids": entities, "read_only": True})
+            atomic_json(self.settings, {"pairing_code": pairing, "entity_ids": entities, "read_only": read_only})
             self.phase = "starting"
             self.message = "Settings saved. Connecting your selected sensors…"
             self.changed.set()
@@ -110,7 +113,7 @@ class SetupManager:
             connected = bool(c and c.stream_connected)
             phase = "waiting" if self.phase == "connected" and not connected else self.phase
             message = "Waiting for a fresh Home Assistant connection." if phase != self.phase else self.message
-            return {"phase": phase, "message": message, "paired": self.paired(), "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": True}
+            return {"phase": phase, "message": message, "paired": self.paired(), "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": self.options()["read_only"]}
 
     def run(self):
         while not self.stopped.is_set():

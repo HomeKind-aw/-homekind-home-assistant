@@ -32,7 +32,7 @@ Choose the intended coverage with the resident before enabling it. History, noti
 
 - The Web UI is available through Home Assistant Ingress to an administrator. The app accepts Ingress traffic from the Supervisor only and exposes no host port.
 - Pairing and bridge credentials remain in the app's private data directory. The cloud stores credential digests. The UI never returns the Supervisor token, bridge token or retained credential file.
-- The phone setup path enforces read-only mode. Cameras, microphones, person/location entities and personal health classes are excluded. Discovery sends only the selected supported entity metadata; reading values also require registration in the HomeKind household.
+- The phone setup starts in read-only mode. A local administrator can explicitly allow selected light and plug controls. Cameras, microphones, person/location entities and personal health classes are excluded. Discovery sends only the selected supported entity metadata; reading values also require registration in the HomeKind household.
 - Home Assistant's `homeassistant_api` capability is broader than a read-only per-entity scope. Code and the explicit local allowlist enforce the restriction. The app requests no Supervisor management, host network, Docker access, privileged mode or extra host mounts.
 - The existing bridge retries temporary outages, reconnects with a snapshot, and labels stale readings. It logs connection status and counts, without raw credentials or sensor histories.
 - Run the physical checks in `PILOT_ACCEPTANCE.txt`. Automated software checks do not commission your actual Green, sensors, iPhone or iPad.
@@ -40,3 +40,8 @@ Choose the intended coverage with the resident before enabling it. History, noti
 Detailed behaviour and local computer instructions are in [DOCS.md](homekind_bridge/DOCS.md). The repository has no household floor plan, account data or service-role key.
 
 Bundled Inter and Nunito fonts retain their SIL Open Font License notices in `homekind_bridge/OFL-Inter.txt` and `homekind_bridge/OFL-Nunito.txt`, including inside the built app container.
+
+
+## Optional light and plug controls (0.4.0)
+
+After updating, open the connector Web UI and enable **Allow light and plug controls**, then save. Read-only is the default. Current pairing and selected devices are retained. In HomeKind, enable controls per device under **Display & alerts**. HomeKind groups can request all enabled lights in a room together; every member is authorised separately and its actual state is reported back. Only selected light and switch entities can be controlled.

@@ -82,7 +82,7 @@ class HomeSetupTests(unittest.TestCase):
         self.assertEqual(self.requests[0][1], "test-supervisor-secret")
         self.assertTrue(all(request[2] is None for request in self.requests))
 
-    def test_pairing_and_allowlist_are_saved_privately_with_read_only_enforced(self):
+    def test_pairing_and_allowlist_default_to_read_only(self):
         status, _, _ = self.configure({"pairing_code": "a" * 64, "entity_ids": ["sensor.room_temperature"]})
         self.assertEqual(status, 200)
         self.assertEqual(self.manager.options(), {"read_only": True, "pairing_code": "a" * 64, "entity_ids": ["sensor.room_temperature"]})
@@ -90,11 +90,22 @@ class HomeSetupTests(unittest.TestCase):
         self.assertEqual(self.manager.directory.stat().st_mode & 0o777, 0o700)
         self.assertTrue(self.manager.changed.is_set())
 
-    def test_configuration_cannot_enable_commands_or_set_an_external_endpoint(self):
-        for extra in [{"read_only": False}, {"ha_url": "https://attacker.invalid"}, {"cloud_url": "https://attacker.invalid"}]:
+    def test_configuration_rejects_invalid_control_flags_and_external_endpoints(self):
+        for extra in [{"read_only": "false"}, {"ha_url": "https://attacker.invalid"}, {"cloud_url": "https://attacker.invalid"}]:
             status, _, _ = self.configure({"pairing_code": "a" * 64, "entity_ids": ["sensor.room_temperature"], **extra})
             self.assertEqual(status, 400)
         self.assertFalse(self.manager.settings.exists())
+
+    def test_local_control_choice_is_explicit_persistent_and_can_be_disabled(self):
+        self.assertTrue(self.manager.options()["read_only"])
+        self.assertEqual(self.configure({"pairing_code": "a" * 64, "entity_ids": ["binary_sensor.door"], "read_only": False})[0], 200)
+        self.assertFalse(self.manager.options()["read_only"])
+        self.assertFalse(self.manager.status()["read_only"])
+        self.manager.credentials.write_text('{"bridge_id":"qa"}')
+        self.assertEqual(self.configure({"pairing_code": "", "entity_ids": ["binary_sensor.door"]})[0], 200)
+        self.assertFalse(self.manager.options()["read_only"])
+        self.assertEqual(self.configure({"pairing_code": "", "entity_ids": ["binary_sensor.door"], "read_only": True})[0], 200)
+        self.assertTrue(self.manager.status()["read_only"])
 
     def test_csrf_is_required_before_reading_home_assistant_or_writing_settings(self):
         status, _, _ = self.configure({"pairing_code": "a" * 64, "entity_ids": ["sensor.room_temperature"]}, csrf="not-the-token")

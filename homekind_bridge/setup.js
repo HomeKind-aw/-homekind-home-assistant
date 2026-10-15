@@ -1,14 +1,16 @@
 'use strict';
 const byId=id=>document.getElementById(id);
-const state={csrf:null,entities:[],selected:new Set(),paired:false,phase:'setup',loading:true};
+const state={csrf:null,entities:[],selected:new Set(),paired:false,phase:'setup',loading:true,controlsLoaded:false};
 async function api(path,body){
  const response=await fetch('./api/'+path,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-HomeKind-Setup':state.csrf}:{},...(body?{body:JSON.stringify(body)}:{})});
  const result=await response.json();if(!response.ok)throw Error(result.error||'The connection is not ready. Try again.');return result;
 }
 function error(message=''){byId('error').textContent=message;byId('error').hidden=!message;}
 function count(){byId('selected-count').textContent=state.selected.size+' selected';}
+function recommended(entity){const k=entity.device_class||'',name=(entity.name+' '+entity.entity_id).replace(/[_.-]+/g,' ');return !/\b(crossfade|loudness|autoplay|surround|child lock|do not disturb|auto off enabled|auto update|indicator|led|adaptive|sensitivity|selfidentification|interference|calibration|night sound|speech enhancement)\b/i.test(name)&&!['voltage','current','signal_strength','connectivity','problem'].includes(k);}
+function visibleEntities(){const search=byId('search').value.trim().toLocaleLowerCase();return state.entities.filter(entity=>(byId('show-other').checked||recommended(entity)||state.selected.has(entity.entity_id))&&(entity.name+' '+entity.entity_id).toLocaleLowerCase().includes(search));}
 function renderEntities(){
- const search=byId('search').value.trim().toLocaleLowerCase(),matched=state.entities.filter(entity=>(entity.name+' '+entity.entity_id).toLocaleLowerCase().includes(search));
+ const search=byId('search').value.trim().toLocaleLowerCase(),matched=visibleEntities();
  const fragment=document.createDocumentFragment();
  for(const entity of matched.slice(0,200)){
   const label=document.createElement('label');label.className='entity';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=entity.entity_id;checkbox.checked=state.selected.has(entity.entity_id);
@@ -23,14 +25,17 @@ async function loadEntities(initial=false){
  catch(failure){error(failure.message);}finally{byId('reload').disabled=false;}
 }
 async function refreshStatus(){
- try{const s=await api('status');state.paired=s.paired;state.phase=s.phase;const labels={setup:'Ready to connect',paused:'Sharing paused',starting:'Saving your connection',connecting:'Connecting',connected:'Connected to HomeKind',waiting:'Waiting for an update',pairing_required:'Fresh pairing code needed'};byId('connection').textContent=labels[s.phase]||'Checking connection';byId('status-message').textContent=s.message;byId('pairing').required=!s.paired||s.phase==='pairing_required';byId('pairing-hint').textContent=s.phase==='pairing_required'?'Create a fresh code in HomeKind, then paste it above.':s.paired?'Your household is paired. Leave this blank when updating your sensor selection.':'The code lasts 10 minutes. Create it once this app is installed.';byId('save').textContent=s.paired?'Save selected sensors':'Connect household';}
+ try{const s=await api('status');state.paired=s.paired;state.phase=s.phase;if(!state.controlsLoaded){byId('allow-controls').checked=s.read_only===false;state.controlsLoaded=true;}const labels={setup:'Ready to connect',paused:'Sharing paused',starting:'Saving your connection',connecting:'Connecting',connected:'Connected to HomeKind',waiting:'Waiting for an update',pairing_required:'Fresh pairing code needed'};byId('connection').textContent=labels[s.phase]||'Checking connection';byId('status-message').textContent=s.message;byId('pairing').required=!s.paired||s.phase==='pairing_required';byId('pairing-hint').textContent=s.phase==='pairing_required'?'Create a fresh code in HomeKind, then paste it above.':s.paired?'Your household is paired. Leave this blank when updating your sensor selection.':'The code lasts 10 minutes. Create it once this app is installed.';byId('save').textContent=s.paired?'Save selected sensors':'Connect household';}
  catch{byId('connection').textContent='Setup connection interrupted';byId('status-message').textContent='Reload this screen or check that the HomeKind app is running.';}
 }
+byId('show-other').addEventListener('change',renderEntities);
+byId('select-shown').addEventListener('click',()=>{for(const e of visibleEntities())if(state.selected.size<250)state.selected.add(e.entity_id);renderEntities();});
+byId('clear-shown').addEventListener('click',()=>{state.selected.clear();renderEntities();});
 byId('search').addEventListener('input',renderEntities);
 byId('reload').addEventListener('click',()=>{void loadEntities();});
 byId('setup').addEventListener('submit',async event=>{
  event.preventDefault();const button=byId('save');button.disabled=true;error();
- try{await api('configure',{pairing_code:byId('pairing').value.trim(),entity_ids:[...state.selected]});byId('pairing').value='';await refreshStatus();}
+ try{await api('configure',{pairing_code:byId('pairing').value.trim(),entity_ids:[...state.selected],read_only:!byId('allow-controls').checked});byId('pairing').value='';await refreshStatus();}
  catch(failure){error(failure.message);}finally{button.disabled=false;}
 });
 (async()=>{try{state.csrf=(await api('setup')).csrf;await refreshStatus();await loadEntities(true);}catch(failure){error(failure.message);}setInterval(()=>{void refreshStatus();},4000);})();

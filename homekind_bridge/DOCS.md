@@ -78,3 +78,8 @@ The token is entered at a hidden local prompt and saved with owner-only file per
 - https://developers.home-assistant.io/docs/api/rest/
 - https://websockets.readthedocs.io/en/16.0/reference/sync/client.html
 - https://supabase.com/docs/guides/functions/auth-headers
+
+
+## Optional light and plug controls (0.4.0)
+
+After updating, open the connector Web UI and enable **Allow light and plug controls**, then save. Read-only is the default. Current pairing and selected devices are retained. In HomeKind, enable controls per device under **Display & alerts**. HomeKind groups can request all enabled lights in a room together; every member is authorised separately and its actual state is reported back. Only selected light and switch entities can be controlled.

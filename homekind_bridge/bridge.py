@@ -19,7 +19,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -412,7 +412,7 @@ class HAStream:
                 self.c.registry[entity["entity_id"]] = {k: str(v)[:200] for k,v in {
                     "ha_unique_id": entity.get("unique_id"), "ha_platform": entity.get("platform"),
                     "ha_device_id": entity.get("device_id"), "ha_area_id": area_id,
-                    "ha_area_name": areas.get(area_id, {}).get("name")}.items() if v}
+                    "ha_area_name": areas.get(area_id, {}).get("name"), "ha_entity_category": entity.get("entity_category")}.items() if v}
 
     def run(self):
         delay = 2
