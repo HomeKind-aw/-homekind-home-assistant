@@ -1,6 +1,6 @@
 name: HomeKind Home Connector
 description: Selected home readings and optional light and plug controls.
-version: "0.4.0"
+version: "0.5.0"
 slug: homekind_bridge
 init: false
 startup: application
