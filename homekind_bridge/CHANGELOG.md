@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 — 16 October 2026
+
+- Handle light commands independently from sensor uploads; up to three leased commands run together.
+- Wake uploads on readings and coalesce bursts to at most one upload per second.
+- Save each heartbeat as a batch, avoiding a disk flush for every cached device.
+- Stop pending service calls when settings change or connector access ends.
+- Retain pairing, device selections, read-only defaults and confirmation of actual device states.
+
 ## 0.4.0 — 16 October 2026
 
 - Add an explicit local switch for light and plug controls; read-only remains the default.
