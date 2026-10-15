@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """HomeKind outbound connector. Python standard library; credentials stay local."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import math
 import socket
@@ -19,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -108,6 +109,11 @@ class Connector:
         self.pending = {}
         self.dropped = 0
         self.lock = threading.RLock()
+        self.wake = threading.Event()
+        self.ready = threading.Event()
+        self.halt = threading.Event()
+        self.external_stop = threading.Event()
+        self.failure = None
         self.stream_connected = False
         self.current = {}
         self.registry = {}
@@ -177,9 +183,14 @@ class Connector:
         result = self.cloud("sync", {"ha_connected": True, "catalog": catalog, "states": readings, "version": VERSION})
         self.tracked = result["tracked"]
 
+    def stopping(self):
+        return self.halt.is_set() or self.external_stop.is_set()
+
     def execute(self, claim):
         if self.read_only:
             raise BridgeError("This connector is read-only.")
+        if self.stopping():
+            return
         # Entity/service arguments are supplied only after current authorization.
         command = None
         sent = False
@@ -191,33 +202,45 @@ class Connector:
             before = self.ha("states/" + entity)
             if before.get("state") not in ("on", "off"):
                 raise BridgeError("Device is unavailable.")
+            if self.stopping():
+                return
             command = self.cloud("authorize", {"command_id": claim["id"], "lease_id": claim["lease_id"]})
             if command["entity_id"] != entity:
                 raise BridgeError("Control target changed.")
             if not ENTITY.fullmatch(entity) or command["domain"] not in ("light", "switch") or command["service"] != "turn_" + command["desired"] or command["desired"] not in ("on", "off"):
                 raise BridgeError("Unsupported control.")
-            if not any(d["entity_id"] == entity and d["control_enabled"] for d in self.tracked):
+            if entity not in self.allowlist or not any(d["entity_id"] == entity and d["control_enabled"] for d in self.tracked):
                 raise BridgeError("Control is not enabled locally.")
             if utc_timestamp(command["expires_at"]) <= self.clock():
                 raise BridgeError("Command has expired.")
+            if self.stopping():
+                return
             if before["state"] == command["desired"]:
                 result, observed = "reported", observation(before)
             else:
                 sent = True
                 self.ha("services/" + command["domain"] + "/" + command["service"], {"entity_id": entity})
                 result = "unconfirmed"
-                for _ in range(5):
+                for _ in range(10):
+                    if self.stopping():
+                        return
                     after = self.ha("states/" + entity)
                     observed = observation(after)
                     if after.get("state") == command["desired"]:
                         changed = after.get("last_updated") != before.get("last_updated") or after.get("context", {}).get("id") != before.get("context", {}).get("id")
                         result = "confirmed" if changed and not observed["assumed_state"] else "reported"
+                        self.accept_state(after)
                         break
-                    self.sleep(1)
+                    self.sleep(0.2)
+        except AccessEnded as error:
+            self.failure = error
+            self.halt.set()
+            self.wake.set()
+            raise
         except BridgeError:
             result = "unconfirmed" if sent else "failed"
         # Never retry a service call after a transport failure or lost acknowledgement.
-        if command is not None:
+        if command is not None and not self.stopping():
             self.cloud("ack", {"command_id": claim["id"], "lease_id": claim["lease_id"], "status": result, "observation": observed})
 
     def step(self):
@@ -257,6 +280,7 @@ class Connector:
             # Latest-state outbox: short-lived transitions aren't represented as history.
             self.pending[entity] = clean
             self.save_pending()
+            self.wake.set()
 
     def stream_sync(self):
         with self.lock:
@@ -265,8 +289,13 @@ class Connector:
             if self.stream_connected:
                 # Heartbeats re-observe the current cache only while the socket is healthy.
                 for state in list(self.current.values()):
-                    if state["entity_id"] not in self.pending:
-                        self.accept_state(state)
+                    if state["entity_id"] in tracked and state["entity_id"] not in self.pending:
+                        clean = observation(state)
+                        clean["observed_at"] = self.stamp()
+                        clean["event_id"] = hashlib.sha256(json.dumps({k:v for k,v in clean.items() if k != "observed_at"}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                        self.pending[state["entity_id"]] = clean
+                # Persist one heartbeat batch, rather than fsync once per cached entity.
+                self.save_pending()
             connected = self.stream_connected
             catalog = [{**catalog_entry(s), **self.registry.get(s["entity_id"], {})} for s in self.current.values() if safe_entity(s) and s["entity_id"] in self.allowlist]
             batch = list(self.pending.values())[:MAX_PENDING]
@@ -275,47 +304,85 @@ class Connector:
         result = self.cloud("sync", payload)
         with self.lock:
             self.tracked = result["tracked"]
+            self.ready.set()
             if connected:
                 for sent in batch:
                     if self.pending.get(sent["entity_id"], {}).get("event_id") == sent["event_id"]:
                         self.pending.pop(sent["entity_id"], None)
             self.save_pending()
 
+    def command_loop(self, on_status):
+        # Commands have their own lane: uploads and one slow device cannot block it.
+        delay = 0.5
+        with ThreadPoolExecutor(max_workers=3, thread_name_prefix="homekind-command") as pool:
+            while not self.stopping():
+                if not self.ready.wait(0.1):
+                    continue
+                if self.stopping():
+                    return
+                try:
+                    claims = self.cloud("poll")["commands"]
+                    if self.stopping():
+                        return
+                    jobs = [pool.submit(self.execute, claim) for claim in claims[:3]]
+                    for job in jobs:
+                        job.result()
+                    delay = 0.5
+                except AccessEnded as error:
+                    self.failure = error
+                    self.halt.set()
+                    self.wake.set()
+                    return
+                except BridgeError:
+                    logging.warning("HomeKind command connection unavailable; waiting to reconnect.")
+                    delay = min(max(2, delay * 2), 30)
+                self.halt.wait(delay)
+
     def run(self, stop_event=None, on_status=lambda event: None):
-        stop_event = stop_event or threading.Event()
-        if stop_event.is_set():
+        self.external_stop = stop_event or threading.Event()
+        if self.stopping():
             return
         self.enrol()
-        if stop_event.is_set():
+        if self.stopping():
             return
         on_status("paired")
         self.stream = HAStream(self)
         self.stream.start()
+        worker = None
+        if not self.read_only:
+            worker = threading.Thread(target=self.command_loop, args=(on_status,), name="homekind-commands", daemon=True)
+            worker.start()
         logging.info("HomeKind connector paired. Read-only: %s. Local allowlist: %s entities.", self.read_only, len(self.allowlist))
+        next_attempt = 0
         try:
-            while not stop_event.is_set():
+            while not self.stopping():
+                self.wake.clear()
                 try:
-                    # One outbound sync per second while changes are pending; ten-second heartbeat.
                     with self.lock:
-                        due = self.clock() >= self.next_sync or bool(self.pending)
+                        due = self.clock() >= next_attempt and (self.clock() >= self.next_sync or bool(self.pending))
                     if due:
                         self.stream_sync()
                         on_status("synced")
                         self.next_sync = self.clock() + 10
-                    if not self.read_only:
-                        for claim in self.cloud("poll")["commands"]:
-                            self.execute(claim)
-                    self.backoff = 2
-                    stop_event.wait(1)
+                        # Coalesce event bursts and stay below the cloud's sync rate limit.
+                        next_attempt = self.clock() + 1
+                        self.backoff = 2
                 except AccessEnded:
                     raise
                 except BridgeError:
                     logging.warning("HomeKind connection unavailable. Retrying in %s seconds.", self.backoff)
                     on_status("retrying")
-                    stop_event.wait(self.backoff)
+                    next_attempt = self.clock() + self.backoff
                     self.backoff = min(self.backoff * 2, 30)
+                self.wake.wait(min(0.5, max(0.02, next_attempt - self.clock())))
+            if self.failure:
+                raise self.failure
         finally:
+            self.halt.set()
+            self.wake.set()
             self.stream.stop()
+            if worker:
+                worker.join(timeout=30)
 
 
 def atomic_json(path, data):
@@ -377,6 +444,7 @@ class HAStream:
                 self.c.accept_state(state)
             self.c.stream_connected = True
             self.c.next_sync = 0
+            self.c.wake.set()
         for ident, kind in [(2, "entity"), (3, "device"), (4, "area")]:
             websocket.send(json.dumps({"id": ident, "type": "config/" + kind + "_registry/list"}))
         registries = {}
@@ -431,6 +499,7 @@ class HAStream:
                 with self.c.lock:
                     self.c.stream_connected = False
                     self.c.next_sync = 0
+                    self.c.wake.set()
                 self.socket = None
             self.stopped.wait(delay)
             delay = min(delay * 2, 30)
