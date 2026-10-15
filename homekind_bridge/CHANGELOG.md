@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 — 15 October 2026
+
+- Restore the Supervisor environment when starting under s6 so the setup screen can open on Home Assistant Green.
+- Verify the actual container entrypoint on ARM and amd64, including unauthorised Ingress rejection.
+
 ## 0.3.0 — 15 October 2026
 
 - Home Assistant repository layout for installation from the App store.

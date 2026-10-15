@@ -6,4 +6,4 @@ ARG BUILD_VERSION
 ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" io.hass.type="app" io.hass.arch="${BUILD_ARCH}"
 COPY bridge.py setup_server.py index.html setup.js setup.css logo.png nunito.ttf inter.ttf OFL-Inter.txt OFL-Nunito.txt /
-CMD ["/opt/bridge/bin/python", "-u", "/setup_server.py"]
+CMD ["/command/with-contenv", "/opt/bridge/bin/python", "-u", "/setup_server.py"]
