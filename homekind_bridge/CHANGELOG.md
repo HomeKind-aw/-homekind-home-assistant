@@ -1,3 +1,10 @@
+## 0.10.1
+
+- Aqara/Zigbee2MQTT buttons connect to their existing Home Assistant action inputs without a forwarding automation.
+- Added triple press and native button action-name normalisation.
+- Kept rapid presses as separate observations; ignored retained MQTT messages and duplicate legacy forwarding.
+- Added direct button connection feedback and corrected press readings inherited from battery diagnostics.
+
 ## 0.10.0 — 17 October 2026
 
 - Read selected vacuum cleaning/docked states and normalised physical button events.

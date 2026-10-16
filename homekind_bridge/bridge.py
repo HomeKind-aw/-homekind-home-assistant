@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.10.0"
+VERSION = "0.10.1"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -67,7 +67,43 @@ HEALTH_UNITS = {
 }
 WEATHER_STATES = {"clear-night", "cloudy", "fog", "hail", "lightning", "lightning-rainy", "partlycloudy", "pouring", "rainy", "snowy", "snowy-rainy", "sunny", "windy", "windy-variant", "exceptional", "unknown", "unavailable"}
 RING_TYPES = {"ring", "pressed", "single_press"}
-BUTTON_ACTIONS = {"single", "double", "hold", "release", "press"}
+BUTTON_ACTIONS = {"single", "double", "triple", "hold", "release", "press"}
+BUTTON_ALIASES = {"single_press": "single", "double_press": "double", "triple_press": "triple", "long_press": "hold", "long_press_start": "hold", "long_press_end": "release", "long_release": "release"}
+
+def button_action(value):
+    if not isinstance(value, str):
+        return None
+    return value if value in BUTTON_ACTIONS else BUTTON_ALIASES.get(value)
+
+def mqtt_button_bindings(info, triggers, device_id):
+    """Use the selected device's HA discovery only; never guess or wildcard MQTT topics."""
+    if not isinstance(info, dict) or not isinstance(triggers, list):
+        return []
+    known = {(t.get("type"), t.get("subtype")) for t in triggers[:128]
+             if isinstance(t, dict) and t.get("device_id") == device_id and t.get("domain") == "mqtt"
+             and t.get("platform", t.get("trigger")) == "device" and t.get("type") == "action"
+             and isinstance(t.get("subtype"), str) and button_action(t.get("subtype"))}
+    rows = info.get("triggers")
+    if not isinstance(rows, list):
+        return []
+    bindings = []
+    for row in rows[:128]:
+        discovery = row.get("discovery_data") if isinstance(row, dict) else None
+        cfg = discovery.get("payload") if isinstance(discovery, dict) else None
+        if not isinstance(cfg, dict) or not isinstance(cfg.get("type"), str) or not isinstance(cfg.get("subtype"), str) or (cfg.get("type"), cfg.get("subtype")) not in known:
+            continue
+        topic, payload, template = cfg.get("topic"), cfg.get("payload"), cfg.get("value_template")
+        action = button_action(cfg.get("subtype"))
+        if not isinstance(topic, str) or not 1 <= len(topic) <= 512 or any(c in topic for c in ("+", "#", "\x00", "{{", "}}")):
+            continue
+        if not isinstance(payload, str) or len(payload) > 100 or button_action(payload) != action:
+            continue
+        # Only the simple standard action field is interpreted. No templates are executed.
+        json_action = isinstance(template, str) and re.sub(r"\s+", "", template) == "{{value_json.action}}"
+        if template not in (None, "") and not json_action:
+            continue
+        bindings.append({"topic": topic, "payload": payload, "action": action, "json_action": json_action})
+    return bindings
 VACUUM_STATES = {"cleaning", "docked", "returning", "paused", "idle", "error", "unknown", "unavailable"}
 
 def reading_class(state):
@@ -124,7 +160,7 @@ def observation(state):
         result.update(unit="", device_class="")
     if state["entity_id"].startswith("event."):
         result["unit"] = ""
-        result["event_type"] = (str(attrs.get("event_type")) if attrs.get("event_type") in BUTTON_ACTIONS else "") if reading_class(state) == "button" else "ring" if attrs.get("event_type") in RING_TYPES else ""
+        result["event_type"] = (button_action(attrs.get("event_type")) or "") if reading_class(state) == "button" else "ring" if attrs.get("event_type") in RING_TYPES else ""
     return result
 
 def catalog_entry(state):
@@ -174,6 +210,13 @@ def utc_timestamp(value):
     except (ValueError, TypeError, AttributeError):
         return 0
 
+def pending_key(reading):
+    entity = reading.get("entity_id", "")
+    event_id = reading.get("event_id", "")
+    if entity.startswith("event.") and reading.get("device_class") == "button" and reading.get("event_type") in BUTTON_ACTIONS and isinstance(event_id, str) and re.fullmatch(r"[0-9a-f]{64}", event_id):
+        return entity + "|" + event_id
+    return entity
+
 class Connector:
     def __init__(self, options, data_dir, request=request_json, sleeper=time.sleep, clock=time.time):
         self.options, self.request, self.sleep, self.clock = options, request, sleeper, clock
@@ -205,12 +248,14 @@ class Connector:
         self.current = {}
         self.registry = {}
         self.button_sources = {}
+        self.native_button_sources = set()
+        self.button_status = {}
         self.stream = None
         if self.outbox_file.exists():
             if self.outbox_file.stat().st_size > 512000:
                 raise BridgeError("The local pending readings file is too large. Stop and check the local installation.")
             saved = json.loads(self.outbox_file.read_text())
-            self.pending = {k:v for k,v in saved.items() if k in self.allowlist and isinstance(v, dict) and v.get("entity_id") == k and safe_reading(v) and self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
+            self.pending = {k:v for k,v in saved.items() if isinstance(v, dict) and v.get("entity_id") in self.allowlist and k in (v["entity_id"], pending_key(v)) and safe_reading(v) and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
 
         self.next_sync = 0
         self.backoff = 2
@@ -371,11 +416,12 @@ class Connector:
                 return
             if entity not in {d["entity_id"] for d in self.tracked if self.collectable(d)}:
                 return
-            if entity not in self.pending and len(self.pending) >= MAX_PENDING:
+            key = pending_key(clean)
+            if key not in self.pending and len(self.pending) >= MAX_PENDING:
                 self.dropped += 1
                 return
-            # Latest-state outbox: short-lived transitions aren't represented as history.
-            self.pending[entity] = clean
+            # Buttons keep each action; continuous sensors keep their latest state.
+            self.pending[key] = clean
             self.save_pending()
             self.wake.set()
 
@@ -392,7 +438,7 @@ class Connector:
         entity = self.button_sources.get(source)
         action = data.get("action")
         at = event.get("time_fired")
-        if not entity or entity not in self.allowlist or not isinstance(action, str) or action not in BUTTON_ACTIONS or not -5 <= self.clock() - utc_timestamp(at) <= 10:
+        if source in self.native_button_sources or not entity or entity not in self.allowlist or not isinstance(action, str) or action not in BUTTON_ACTIONS or not -5 <= self.clock() - utc_timestamp(at) <= 10:
             return
         previous = self.current.get(entity)
         if not previous:
@@ -409,15 +455,15 @@ class Connector:
     def stream_sync(self):
         with self.lock:
             tracked = {d["entity_id"] for d in self.tracked if self.collectable(d)} & self.allowlist
-            self.pending = {k:v for k,v in self.pending.items() if k in tracked and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
+            self.pending = {k:v for k,v in self.pending.items() if v.get("entity_id") in tracked and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
             if self.stream_connected:
                 # Heartbeats re-observe the current cache only while the socket is healthy.
                 for state in list(self.current.values()):
-                    if state["entity_id"] in tracked and state["entity_id"] not in self.pending:
+                    if state["entity_id"] in tracked and not any(v["entity_id"] == state["entity_id"] for v in self.pending.values()) and len(self.pending) < MAX_PENDING:
                         clean = observation(state)
                         clean["observed_at"] = self.stamp()
                         clean["event_id"] = hashlib.sha256(json.dumps({k:v for k,v in clean.items() if k != "observed_at"}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-                        self.pending[state["entity_id"]] = clean
+                        self.pending[pending_key(clean)] = clean
                 # Persist one heartbeat batch, rather than fsync once per cached entity.
                 self.save_pending()
             connected = self.stream_connected
@@ -431,7 +477,11 @@ class Connector:
             self.ready.set()
             if connected:
                 for sent in batch:
-                    if self.pending.get(sent["entity_id"], {}).get("event_id") == sent["event_id"]:
+                    key = pending_key(sent)
+                    if self.pending.get(key, {}).get("event_id") == sent["event_id"]:
+                        self.pending.pop(key, None)
+                    # Migrate a pending 0.10.0 button entry using its original identifier.
+                    elif self.pending.get(sent["entity_id"], {}).get("event_id") == sent["event_id"]:
                         self.pending.pop(sent["entity_id"], None)
             self.save_pending()
 
@@ -543,6 +593,102 @@ class HAStream:
         self.thread = None
         self.socket = None
 
+    def discover_buttons(self, websocket):
+        for source, virtual in self.c.button_sources.items():
+            identity = self.c.registry.get(source, {})
+            device = identity.get("ha_device_id")
+            if identity.get("ha_platform") != "mqtt" or not device:
+                continue
+            # A real selected button event entity already supplies these events.
+            if any(e != virtual and s.get("attributes", {}).get("device_class") == "button"
+                   and self.c.registry.get(e, {}).get("ha_device_id") == device
+                   for e, s in self.c.current.items()):
+                self.c.button_status[virtual] = {"name": self.c.current[virtual]["attributes"]["friendly_name"], "message": "Use the existing Home Assistant button event reading."}
+                continue
+            for kind, command in (("triggers", "device_automation/trigger/list"), ("mqtt", "mqtt/device/debug_info")):
+                ident = self.next_id
+                self.next_id += 1
+                self.button_requests[ident] = (source, kind)
+                websocket.send(json.dumps({"id": ident, "type": command, "device_id": device}))
+
+    def button_result(self, websocket, message):
+        ident = message.get("id")
+        if ident in self.button_requests:
+            source, kind = self.button_requests.pop(ident)
+            self.button_discovery.setdefault(source, {})[kind] = message.get("result") if message.get("success") is True else None
+            data = self.button_discovery[source]
+            if "triggers" not in data or "mqtt" not in data:
+                return
+            virtual = self.c.button_sources[source]
+            device = self.c.registry.get(source, {}).get("ha_device_id")
+            rows = mqtt_button_bindings(data["mqtt"], data["triggers"], device)
+            desired = {}
+            for row in rows:
+                key = (source, row["topic"], row["json_action"])
+                desired.setdefault(key, {})[row["payload"]] = row["action"]
+            for key, sub_id in list(self.button_subscriptions.items()):
+                if key[0] == source:
+                    self.button_routes[sub_id]["actions"] = desired.get(key, {})
+            for key, actions in desired.items():
+                if key not in self.button_subscriptions:
+                    sub_id = self.next_id
+                    self.next_id += 1
+                    self.button_subscriptions[key] = sub_id
+                    self.button_routes[sub_id] = {"source": source, "topic": key[1], "json_action": key[2], "actions": actions, "active": False}
+                    websocket.send(json.dumps({"id": sub_id, "type": "mqtt/subscribe", "topic": key[1], "qos": 0}))
+            self.update_button_status(source)
+        elif ident in self.button_routes:
+            route = self.button_routes[ident]
+            route["active"] = message.get("success") is True
+            # Failed subscriptions can be retried at the next discovery, without interrupting sensors.
+            if not route["active"]:
+                key = (route["source"], route["topic"], route["json_action"])
+                self.button_subscriptions.pop(key, None)
+                self.button_routes.pop(ident, None)
+            self.update_button_status(route["source"])
+
+    def update_button_status(self, source):
+        virtual = self.c.button_sources[source]
+        actions = sorted({a for r in self.button_routes.values() if r["source"] == source and r["active"] for a in r["actions"].values()})
+        if actions:
+            self.c.native_button_sources.add(source)
+        else:
+            self.c.native_button_sources.discard(source)
+        self.c.button_status[virtual] = {"name": self.c.current[virtual]["attributes"]["friendly_name"], "actions": actions,
+            "message": "Connected directly to Home Assistant. Ready for a physical press." if actions else "No supported press input connected yet. Try each button action in Home Assistant; discovery refreshes automatically. If Home Assistant reports a permission error, check the connector's existing local account."}
+
+    def button_message(self, message):
+        route = self.button_routes.get(message.get("id"))
+        event = message.get("event")
+        if not route or not route["active"] or not isinstance(event, dict) or event.get("retain") is not False or event.get("topic") != route["topic"]:
+            return
+        source = route["source"]
+        virtual = self.c.button_sources.get(source)
+        if not virtual or virtual not in self.c.allowlist:
+            return
+        payload = event.get("payload")
+        if not isinstance(payload, str) or len(payload) > 256:
+            return
+        if route["json_action"]:
+            try:
+                body = json.loads(payload)
+            except (ValueError, TypeError):
+                return
+            payload = body.get("action") if isinstance(body, dict) else None
+        action = route["actions"].get(payload) if isinstance(payload, str) else None
+        if not action:
+            return
+        with self.c.lock:
+            previous = self.c.current.get(virtual)
+            if not previous:
+                return
+            # HA forwards live, non-retained MQTT messages. Historical logs are never replayed.
+            at = self.c.stamp()
+            if utc_timestamp(at) <= utc_timestamp(previous.get("state")):
+                at = dt.datetime.fromtimestamp(utc_timestamp(previous["state"]) + 0.000001, dt.timezone.utc).isoformat()
+            self.c.accept_state({**previous, "state": at, "last_updated": at, "last_changed": at,
+                                 "attributes": {**previous["attributes"], "event_type": action}})
+
     def start(self):
         self.thread = threading.Thread(target=self.run, name="homekind-ha-readonly", daemon=True)
         self.thread.start()
@@ -577,6 +723,8 @@ class HAStream:
         with self.c.lock:
             self.c.current = {}
             self.c.button_sources = {}
+            self.c.native_button_sources = set()
+            self.c.button_status = {}
             for button in button_candidates(states, self.c.stamp()):
                 if button["entity_id"] in self.c.allowlist:
                     self.c.button_sources[button["attributes"]["source_entity_id"]] = button["entity_id"]
@@ -591,7 +739,17 @@ class HAStream:
         if self.c.button_sources:
             websocket.send(json.dumps({"id": 5, "type": "subscribe_events", "event_type": "homekind_button"}))
         registries = {}
+        self.next_id = 10
+        self.button_requests, self.button_discovery = {}, {}
+        self.button_routes, self.button_subscriptions = {}, {}
+        refresh_buttons_at = 0
         while not self.stopped.is_set():
+            if 2 in registries and self.c.clock() >= refresh_buttons_at:
+                # Clear timed-out discovery requests. Existing working subscriptions stay in place.
+                self.button_requests.clear()
+                self.button_discovery.clear()
+                self.discover_buttons(websocket)
+                refresh_buttons_at = self.c.clock() + 30
             try:
                 message = self.receive(websocket)
             except TimeoutError:
@@ -601,6 +759,10 @@ class HAStream:
                 if message.get("success") and isinstance(message.get("result"), list):
                     registries[message["id"]] = message["result"]
                     self.registry(registries)
+            elif message.get("type") == "result":
+                self.button_result(websocket, message)
+            elif message.get("type") == "event" and message.get("id") in self.button_routes:
+                self.button_message(message)
             elif message.get("type") == "event" and message.get("id") == 5:
                 self.c.accept_button_event(message.get("event"))
             elif message.get("type") == "event" and message.get("id") == 1:
@@ -628,7 +790,7 @@ class HAStream:
                     "ha_area_name": areas.get(area_id, {}).get("name"), "ha_entity_category": entity.get("entity_category")}.items() if v}
             for source, virtual in self.c.button_sources.items():
                 if source in self.c.registry:
-                    self.c.registry[virtual] = {**self.c.registry[source], "ha_unique_id": "homekind-button-" + source}
+                    self.c.registry[virtual] = {k:v for k,v in {**self.c.registry[source], "ha_unique_id": "homekind-button-" + source}.items() if k != "ha_entity_category"}
 
     def run(self):
         delay = 2

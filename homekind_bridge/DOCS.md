@@ -119,33 +119,17 @@ Camera failures use a separate worker and do not stop the sensor stream or light
 
 The pilot camera database, dedicated endpoint and HomeKind viewer are active. Update and commission the same Green installation before relying on live viewing. Physical G100 playback is not yet verified.
 
-## Physical buttons — Connector 0.10.0
+## Physical buttons — Connector 0.10.1
 
-1. Press the physical button once for each supported action so Zigbee2MQTT can discover its MQTT device triggers.
-2. In Home Assistant → Settings → Automations, create an automation. Add a **Device** trigger, choose the button, and select its single-press action.
-3. Add a **Fire an event** action. Set event type to `homekind_button`. Use the real battery entity as `source_entity_id` and a fixed `action` matching this trigger (`single`, `double`, `hold`, `release` or `press`).
-4. In this connector's Web UI, select the separate button **press** entry and save. Keep your current pairing code blank when already paired.
-5. Add that press reading in HomeKind → Devices, assign it to the appropriate room or On person, then open Settings → Pilot checks. Complete the two-press commissioning session.
+1. In this connector's Web UI, select the button's separate **press** reading and save. Keep your pairing code blank when already paired.
+2. For Aqara buttons connected through Zigbee2MQTT, the connector reads the existing Home Assistant device-trigger discovery and subscribes to that button's exact action topic through Home Assistant. **No new automation or broker credentials are needed.**
+3. Check the button connection message in this Web UI. If an action has not appeared yet, perform it once in Home Assistant. Discovery refreshes every 30 seconds. Supported inputs are single, double, triple, hold and release, where the device exposes them.
+4. Add the press reading in HomeKind → Devices, assign its room or On person, then open Settings → Pilot checks. Test the physical actions and check their displayed names. The guided repeat-press session confirms two fresh events; it does not certify every action automatically.
 
-Example for the pilot's existing Magic Button battery (replace the trigger device ID with the one chosen in Home Assistant):
+Only explicitly selected button sources are inspected. Topic names, MQTT payloads and diagnostic logs remain local; HomeKind receives the fixed action and observation time. Wildcard topics, arbitrary templates, retained MQTT messages and unsupported actions are rejected. A battery update never creates a press. Rapid presses remain separate observations in the bounded local outbox.
 
-```yaml
-alias: HomeKind Magic Button
-triggers:
-  - trigger: device
-    domain: mqtt
-    device_id: REPLACE_WITH_THIS_BUTTON_DEVICE_ID
-    type: action
-    subtype: single
-actions:
-  - event: homekind_button
-    event_data:
-      source_entity_id: sensor.magic_button_battery
-      action: single
-mode: queued
-max: 10
-```
+Native Home Assistant button event entities are also supported; choose that existing reading when available. A previously configured `homekind_button` forwarding automation remains a compatibility fallback only when a direct MQTT input is not active. Once the direct input connects, forwarded events for that source are ignored to avoid duplicates. Existing forwarding automations can then be disabled.
 
-The connector accepts events only for selected local button sources and fixed action names. It ignores old events, and a battery heartbeat never creates a press. This records a button action; it does not send a family message, call anyone or grant additional home controls. Configure any optional routines separately.
+The connector uses the existing local Home Assistant account and permissions. If HA refuses the MQTT subscription, the Web UI reports that the button input is not connected; ordinary sensors keep working. No permission is widened automatically. This records button activity only; family notifications or other routines must be configured separately.
 
 Vacuum status is read-only. Select the actual `vacuum` entry to share Cleaning, Docked, Returning or Paused. Battery and dock settings do not establish cleaning activity.

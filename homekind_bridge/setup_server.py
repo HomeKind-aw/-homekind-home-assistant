@@ -117,7 +117,7 @@ class SetupManager:
             connected = bool(c and c.stream_connected)
             phase = "waiting" if self.phase == "connected" and not connected else self.phase
             message = "Waiting for a fresh Home Assistant connection." if phase != self.phase else self.message
-            return {"phase": phase, "message": message, "paired": self.paired(), "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": self.options()["read_only"], "live_camera_entity_ids": self.options().get("live_camera_entity_ids", [])}
+            return {"phase": phase, "message": message, "paired": self.paired(), "button_inputs": list(c.button_status.values()) if c else [], "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": self.options()["read_only"], "live_camera_entity_ids": self.options().get("live_camera_entity_ids", [])}
 
     def run(self):
         while not self.stopped.is_set():

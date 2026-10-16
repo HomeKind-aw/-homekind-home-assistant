@@ -176,6 +176,7 @@ class HomeSetupTests(unittest.TestCase):
             def __init__(self, options, directory, request):
                 self.options = options
                 self.stream_connected = True
+                self.button_status = {}
                 self.tracked = []
             def run(self, stop_event, on_status):
                 active[0] += 1

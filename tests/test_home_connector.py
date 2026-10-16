@@ -272,8 +272,8 @@ class CommissioningReadingTests(unittest.TestCase):
             connector.accept_button_event({**event, "time_fired": "2020-01-01T00:00:00Z"})
             self.assertEqual(connector.pending, {})
             connector.accept_button_event(event)
-            self.assertEqual(connector.pending[candidate["entity_id"]]["event_type"], "single")
-            self.assertEqual(connector.pending[candidate["entity_id"]]["state"], at)
+            self.assertEqual(next(iter(connector.pending.values()))["event_type"], "single")
+            self.assertEqual(next(iter(connector.pending.values()))["state"], at)
 
     def test_normal_buttons_do_not_become_doorbells(self):
         state = {"entity_id": "event.remote", "state": "2026-10-17T00:00:00Z", "attributes": {"device_class": "button", "event_type": "double"}}

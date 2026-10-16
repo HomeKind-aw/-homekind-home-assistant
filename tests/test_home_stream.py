@@ -130,4 +130,88 @@ class StreamTests(unittest.TestCase):
             self.assertTrue(c.stream_connected);self.assertEqual(c.current['binary_sensor.lounge']['state'],'off');self.assertEqual(c.pending['binary_sensor.lounge']['state'],'off')
             done.set();stream.stop();server.shutdown();server_thread.join(timeout=2)
 
+
+
+class NativeButtonTests(unittest.TestCase):
+    def discovery(self, actions=('single','double','triple','hold','release')):
+        triggers=[{'platform':'device','domain':'mqtt','device_id':'selected-device','type':'action','subtype':a} for a in actions]
+        info={'triggers':[{'discovery_data':{'payload':{'automation_type':'trigger','type':'action','subtype':a,'topic':'zigbee2mqtt/Magic Button/action','payload':a}}} for a in actions]}
+        return info,triggers
+
+    def test_discovery_matches_selected_device_and_rejects_wildcards_templates_and_unknown_actions(self):
+        info,triggers=self.discovery()
+        rows=bridge.mqtt_button_bindings(info,triggers,'selected-device')
+        self.assertEqual({r['action'] for r in rows},{'single','double','triple','hold','release'})
+        self.assertEqual(bridge.mqtt_button_bindings(info,triggers,'another-device'),[])
+        for change in [{'topic':'zigbee2mqtt/#'},{'value_template':'{{ secret }}'},{'payload':'turn_off'},{'type':[]},{'subtype':[]}]:
+            bad=json.loads(json.dumps(info));bad['triggers'][0]['discovery_data']['payload'].update(change)
+            self.assertEqual(len(bridge.mqtt_button_bindings(bad,triggers,'selected-device')),4)
+        info,triggers=self.discovery(('quadruple','turn_off'))
+        self.assertEqual(bridge.mqtt_button_bindings(info,triggers,'selected-device'),[])
+
+    def test_json_action_template_is_parsed_without_evaluating_arbitrary_templates(self):
+        info,triggers=self.discovery(('triple',))
+        info['triggers'][0]['discovery_data']['payload']['value_template']='{{ value_json.action }}'
+        self.assertTrue(bridge.mqtt_button_bindings(info,triggers,'selected-device')[0]['json_action'])
+
+    def test_native_event_entity_standard_names_include_triple(self):
+        for raw,action in [('single_press','single'),('double_press','double'),('triple_press','triple'),('long_press_start','hold'),('long_press_end','release')]:
+            s=state('event.aqara', '2026-10-17T00:00:00Z', klass='button');s['attributes']['event_type']=raw
+            self.assertEqual(bridge.observation(s)['event_type'],action)
+
+    def test_real_ha_socket_discovers_existing_actions_rejects_retained_and_preserves_press_bursts(self):
+        from websockets.sync.server import serve
+        info,triggers=self.discovery();calls=[];done=threading.Event();errors=[]
+        stamp=bridge.dt.datetime.now(bridge.dt.timezone.utc).isoformat()
+        battery=state('sensor.magic_button_battery','100',stamp,'battery');battery['attributes']['friendly_name']='Magic Button Battery'
+        virtual=bridge.button_candidates([battery],stamp)[0]['entity_id']
+        def handler(ws):
+            try:
+                ws.send(json.dumps({'type':'auth_required'}));ws.recv();ws.send(json.dumps({'type':'auth_ok'}))
+                while not done.is_set():
+                    query=json.loads(ws.recv(timeout=5));calls.append(query)
+                    kind=query['type'];result=None
+                    if kind=='config/entity_registry/list':result=[{'entity_id':battery['entity_id'],'device_id':'selected-device','platform':'mqtt','entity_category':'diagnostic'}]
+                    elif kind=='config/device_registry/list':result=[{'id':'selected-device'}]
+                    elif kind=='config/area_registry/list':result=[]
+                    elif kind=='device_automation/trigger/list':result=triggers
+                    elif kind=='mqtt/device/debug_info':result=info
+                    elif kind not in ('subscribe_events','mqtt/subscribe'):raise AssertionError(kind)
+                    ws.send(json.dumps({'id':query['id'],'type':'result','success':True,'result':result}))
+                    if kind=='mqtt/subscribe':
+                        for payload,retain,topic in [('single',True,query['topic']),('turn_off',False,query['topic']),('single',False,'unselected/action'),('single',False,query['topic']),('double',False,query['topic']),('triple',False,query['topic']),('hold',False,query['topic'])]:
+                            ws.send(json.dumps({'id':query['id'],'type':'event','event':{'topic':topic,'payload':payload,'retain':retain,'qos':0}}))
+                        ws.send(json.dumps({'id':5,'type':'event','event':{'event_type':'homekind_button','time_fired':stamp,'data':{'source_entity_id':battery['entity_id'],'action':'single'}}}))
+                        done.wait(5);return
+            except Exception as e:errors.append(e)
+        with serve(handler,'127.0.0.1',0) as server,tempfile.TemporaryDirectory() as directory:
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            c=bridge.Connector({'ha_url':f'http://127.0.0.1:{server.socket.getsockname()[1]}','entity_ids':[virtual]},directory,request=lambda *args:[battery]);c.ha_token='local-fixture';c.tracked=[{'entity_id':virtual}]
+            stream=bridge.HAStream(c);stream.start()
+            deadline=time.monotonic()+5
+            while time.monotonic()<deadline and c.current.get(virtual,{}).get('attributes',{}).get('event_type')!='hold':time.sleep(.01)
+            done.set();stream.stop();server.shutdown();thread.join(timeout=2)
+            self.assertFalse(errors,errors)
+            presses=[v for v in c.pending.values() if v.get('event_type')]
+            self.assertEqual([v['event_type'] for v in presses],['single','double','triple','hold'])
+            self.assertEqual(len({v['event_id'] for v in presses}),4)
+            self.assertNotIn('ha_entity_category',c.registry[virtual])
+            self.assertEqual(c.button_status[virtual]['actions'],['double','hold','release','single','triple'])
+            self.assertNotIn('sensor.magic_button_battery',c.current)
+            mqtt=[v for v in calls if v['type']=='mqtt/subscribe'];self.assertEqual(len(mqtt),1);self.assertEqual(mqtt[0]['topic'],'zigbee2mqtt/Magic Button/action')
+            self.assertNotIn('fire_event',str(calls));self.assertNotIn('call_service',str(calls));self.assertNotIn('automation/config',str(calls))
+            restored=bridge.Connector({'entity_ids':[virtual]},directory)
+            self.assertEqual([v['event_type'] for v in restored.pending.values() if v.get('event_type')],['single','double','triple','hold'])
+            sent=[];c.credentials['bridge_id']='synthetic-button-bridge';c.request=lambda url,token,payload:(sent.append(payload) or {'tracked':[{'entity_id':virtual}]});c.stream_connected=True;c.stream_sync()
+            self.assertEqual([v['event_type'] for v in sent[-1]['states'] if v.get('event_type')],['single','double','triple','hold']);self.assertEqual(c.pending,{})
+            self.assertNotIn('zigbee2mqtt',str(sent));self.assertNotIn('payload',str(sent))
+
+    def test_subscription_denied_keeps_other_sensor_stream_and_reports_button_unconnected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            c=bridge.Connector({'entity_ids':[]},directory);s=bridge.HAStream(c,connect=lambda:None)
+            c.stream_connected=True;c.button_sources={'sensor.button_battery':'event.virtual'};c.current['event.virtual']={'attributes':{'friendly_name':'Button press'}}
+            s.button_requests={};s.button_subscriptions={('sensor.button_battery','selected/action',False):10};s.button_routes={10:{'source':'sensor.button_battery','topic':'selected/action','json_action':False,'actions':{'single':'single'},'active':False}}
+            s.button_result(None,{'id':10,'success':False,'error':{'code':'unauthorized'}})
+            self.assertTrue(c.stream_connected);self.assertEqual(c.native_button_sources,set());self.assertIn('permission',c.button_status['event.virtual']['message']);self.assertEqual(s.button_subscriptions,{})
+
 if __name__=='__main__':unittest.main()
