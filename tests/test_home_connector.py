@@ -1,3 +1,4 @@
+import json
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -244,3 +245,25 @@ class ExtendedReadingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class WeatherReadingTests(unittest.TestCase):
+    def source(self, **attrs):
+        return {"entity_id":"weather.home", "state":"partlycloudy", "last_updated":"2026-10-16T00:00:00Z", "last_changed":"2026-10-16T00:00:00Z", "attributes":{"friendly_name":"Home weather", "temperature":18.4, "temperature_unit":"°C", "humidity":63, "latitude":-37.8, "longitude":144.8, "access_token":"private", "forecast":[{"private":"forecast"}], **attrs}}
+
+    def test_weather_discovery_and_observation_strip_coordinates_tokens_and_forecasts(self):
+        state=self.source();self.assertTrue(bridge.safe_entity(state));self.assertTrue(bridge.safe_reading(state));value=bridge.observation(state)
+        self.assertEqual(value['temperature'],18.4);self.assertEqual(value['humidity'],63);self.assertEqual(value['temperature_unit'],'°C')
+        for field in ['latitude','longitude','access_token','forecast']:self.assertNotIn(field,value)
+        state['state']='some private arbitrary text';self.assertFalse(bridge.safe_reading(state))
+        self.assertNotIn('temperature',bridge.observation(self.source(temperature=float('nan'))))
+        self.assertNotIn('temperature',bridge.observation(self.source(temperature=True)))
+
+    def test_only_locally_selected_weather_is_shared_without_device_registration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            c=bridge.Connector({'entity_ids':['weather.home']},directory);c.credentials['bridge_id']='fixture';c.stream_connected=True
+            c.current={'weather.home':self.source(),'weather.other':{**self.source(),'entity_id':'weather.other'}}
+            payloads=[];c.cloud=lambda operation,payload:payloads.append(payload) or {'tracked':[]}
+            c.stream_sync();self.assertEqual(len(payloads[0]['bridge_info']['weather']),1);self.assertEqual(payloads[0]['states'],[])
+            self.assertNotIn('private',json.dumps(payloads[0]['bridge_info']['weather']))
+            c.allowlist.clear();c.stream_sync();self.assertEqual(payloads[1]['bridge_info']['weather'],[])
+            c.allowlist={'weather.home'};c.stream_connected=False;c.stream_sync();self.assertEqual(payloads[2]['bridge_info']['weather'],[])

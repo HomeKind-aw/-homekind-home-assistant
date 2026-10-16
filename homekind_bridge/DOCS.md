@@ -1,6 +1,8 @@
-# HomeKind Home Connector 0.3.0
+# HomeKind Home Connector 0.8.0
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, tick the sensors you choose and connect. It reuses the existing HomeKind bridge service and runs on your Green.
+
+For current weather, select your `weather` source in the connector Web UI and save. Conditions, temperature and humidity appear in HomeKind Local information without room allocation. A BOM integration can supply these readings. Weather follows local-information permissions; forecasts, source credentials and location attributes remain local.
 
 ## Install from the Home Assistant App store
 

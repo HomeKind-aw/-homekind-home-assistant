@@ -2,6 +2,12 @@
 
 Selected sensor readings from your Home Assistant Green, in your HomeKind home view.
 
+## Current weather (0.8.0)
+
+Update to **0.8.0**, restart the connector, open its Web UI and select your `weather` source alongside your existing selections. Save once. Current conditions, temperature and humidity then appear automatically in **HomeKind → Local information**; weather does not need room allocation. A BOM source already connected to Home Assistant is preferred when available.
+
+Only selected current-weather fields are shared. Forecast history, provider tokens and location attributes stay in Home Assistant. Existing local-information permissions apply. Pairing and previous device selections are retained.
+
 Install, start, then tap **Open Web UI** to paste your HomeKind pairing code and select sensors on your phone. The connector starts in read-only mode and uses your local Home Assistant session. Its private credentials stay on the Green.
 
 Your HomeKind household controls who can see each room. Device registration, history, alerts and notifications are separate choices in HomeKind.

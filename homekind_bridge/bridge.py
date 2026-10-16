@@ -20,11 +20,11 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
-ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event)\.[a-z0-9_]{1,150}$")
+ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event|weather)\.[a-z0-9_]{1,150}$")
 SENSOR_CLASSES = {"temperature", "humidity", "illuminance", "battery", "power", "energy", "voltage", "current", "signal_strength", "carbon_dioxide", "pm25", "pm10", "water"}
 BINARY_CLASSES = {"motion", "occupancy", "opening", "door", "window", "moisture", "vibration", "connectivity", "battery", "problem"}
 
@@ -65,6 +65,7 @@ HEALTH_UNITS = {
     "health_systolic": {"mmHg"}, "health_diastolic": {"mmHg"},
     "health_glucose": {"mg/dL", "mmol/L"},
 }
+WEATHER_STATES = {"clear-night", "cloudy", "fog", "hail", "lightning", "lightning-rainy", "partlycloudy", "pouring", "rainy", "snowy", "snowy-rainy", "sunny", "windy", "windy-variant", "exceptional", "unknown", "unavailable"}
 RING_TYPES = {"ring", "pressed", "single_press"}
 
 def reading_class(state):
@@ -102,11 +103,19 @@ def safe_entity(state):
         return False
     domain = entity.split(".")[0]
     klass = reading_class(state)
-    return domain in ("light", "switch", "media_player", "camera") or (domain == "event" and klass == "doorbell") or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS)) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
+    return domain in ("light", "switch", "media_player", "camera", "weather") or (domain == "event" and klass == "doorbell") or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS)) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
 
 def observation(state):
     attrs = state.get("attributes", {})
     result = {"entity_id": state["entity_id"], "state": str(state.get("state", "unknown"))[:100], "unit": str(attrs.get("unit_of_measurement", ""))[:20], "device_class": reading_class(state)[:40], "assumed_state": attrs.get("assumed_state") is True, "last_updated": state.get("last_updated"), "last_changed": state.get("last_changed")}
+    if state["entity_id"].startswith("weather."):
+        result.update(unit="", device_class="weather")
+        for key in ("temperature", "humidity", "wind_speed"):
+            value = attrs.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+                result[key] = value
+        for key, allowed in (("temperature_unit", {"°C", "°F"}), ("wind_speed_unit", {"km/h", "m/s", "mph", "kn"})):
+            if attrs.get(key) in allowed: result[key] = attrs[key]
     if state["entity_id"].startswith("camera."):
         result.update(unit="", device_class="")
     if state["entity_id"].startswith("event."):
@@ -122,6 +131,8 @@ def safe_reading(state):
     value = state.get("state", "")
     if not isinstance(value, str) or len(value) > 100:
         return False
+    if state["entity_id"].startswith("weather."):
+        return value in WEATHER_STATES
     if state["entity_id"].startswith("camera."):
         return value in ("idle", "streaming", "recording", "on", "off", "unknown", "unavailable")
     if state["entity_id"].startswith("event."):
@@ -327,6 +338,9 @@ class Connector:
             if previous and utc_timestamp(previous.get("last_updated")) > utc_timestamp(state.get("last_updated")):
                 return
             self.current[entity] = {**state, "attributes": dict(state["attributes"])}
+            if entity.startswith("weather."):
+                self.wake.set()
+                return
             if entity not in {d["entity_id"] for d in self.tracked if self.collectable(d)}:
                 return
             if entity not in self.pending and len(self.pending) >= MAX_PENDING:
@@ -336,6 +350,12 @@ class Connector:
             self.pending[entity] = clean
             self.save_pending()
             self.wake.set()
+
+    def shared_weather(self):
+        # Only locally selected weather entities; forecasts, locations, URLs and
+        # arbitrary integration attributes never leave Home Assistant.
+        return [{**observation(s), "name": catalog_entry(s)["name"], "source": str(self.registry.get(s["entity_id"], {}).get("ha_platform", ""))[:80]}
+                for s in self.current.values() if s["entity_id"].startswith("weather.") and s["entity_id"] in self.allowlist and safe_entity(s) and safe_reading(s)][:8]
 
     def stream_sync(self):
         with self.lock:
@@ -355,7 +375,7 @@ class Connector:
             catalog = [{**catalog_entry(s), **self.registry.get(s["entity_id"], {})} for s in self.current.values() if safe_entity(s) and s["entity_id"] in self.allowlist]
             batch = list(self.pending.values())[:MAX_PENDING]
             payload = {"ha_connected": connected, "catalog": catalog, "states": batch if connected else [], "version": VERSION,
-                       "bridge_info": {"read_only": self.read_only, "stream_connected": connected, "observed_at": self.stamp(), "queue_size": len(self.pending), "queue_dropped": self.dropped}}
+                       "bridge_info": {"read_only": self.read_only, "stream_connected": connected, "observed_at": self.stamp(), "queue_size": len(self.pending), "queue_dropped": self.dropped, "weather": self.shared_weather() if connected else []}}
         result = self.cloud("sync", payload)
         with self.lock:
             self.tracked = result["tracked"]

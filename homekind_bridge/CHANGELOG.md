@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 — 16 October 2026
+
+- Share locally selected Home Assistant weather sources, including BOM integrations.
+- Show current conditions, temperature and humidity in HomeKind Local information.
+- Keep forecast history, location attributes, media and provider tokens local.
+- Retain pairing, device selections, light controls and fast updates.
+
 ## 0.7.0 — 16 October 2026
 
 - Discover camera status, event and binary doorbells, and supported numeric health sensors.
