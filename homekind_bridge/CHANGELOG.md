@@ -1,3 +1,10 @@
+## 0.9.0 — 16 October 2026
+
+- Separate, opt-in camera allowlist; existing sensor selection and pairing are retained.
+- Independent WebRTC signalling worker; media and camera credentials stay out of cloud storage.
+- Viewer permissions, resident pause, expiry and access revocation are enforced server-side and locally.
+- The pilot camera database and endpoint are active. Physical camera and Green commissioning is still required.
+
 # Changelog
 
 ## 0.8.0 — 16 October 2026
