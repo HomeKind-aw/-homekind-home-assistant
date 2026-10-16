@@ -20,11 +20,11 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.9.0"
+VERSION = "0.10.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
-ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event|weather)\.[a-z0-9_]{1,150}$")
+ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event|weather|vacuum)\.[a-z0-9_]{1,150}$")
 SENSOR_CLASSES = {"temperature", "humidity", "illuminance", "battery", "power", "energy", "voltage", "current", "signal_strength", "carbon_dioxide", "pm25", "pm10", "water"}
 BINARY_CLASSES = {"motion", "occupancy", "opening", "door", "window", "moisture", "vibration", "connectivity", "battery", "problem"}
 
@@ -67,10 +67,14 @@ HEALTH_UNITS = {
 }
 WEATHER_STATES = {"clear-night", "cloudy", "fog", "hail", "lightning", "lightning-rainy", "partlycloudy", "pouring", "rainy", "snowy", "snowy-rainy", "sunny", "windy", "windy-variant", "exceptional", "unknown", "unavailable"}
 RING_TYPES = {"ring", "pressed", "single_press"}
+BUTTON_ACTIONS = {"single", "double", "hold", "release", "press"}
+VACUUM_STATES = {"cleaning", "docked", "returning", "paused", "idle", "error", "unknown", "unavailable"}
 
 def reading_class(state):
     """Recognise personal readings explicitly; ordinary room readings stay ordinary."""
     attrs = state.get("attributes", {})
+    if str(state.get("entity_id", "")).startswith("vacuum."):
+        return "vacuum"
     klass = str(attrs.get("device_class", ""))
     entity = str(state.get("entity_id", ""))
     words = re.sub(r"[_.-]+", " ", entity + " " + str(attrs.get("friendly_name", ""))).lower()
@@ -103,7 +107,7 @@ def safe_entity(state):
         return False
     domain = entity.split(".")[0]
     klass = reading_class(state)
-    return domain in ("light", "switch", "media_player", "camera", "weather") or (domain == "event" and klass == "doorbell") or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS)) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
+    return domain in ("light", "switch", "media_player", "camera", "weather", "vacuum") or (domain == "event" and klass in ("doorbell", "button")) or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS)) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
 
 def observation(state):
     attrs = state.get("attributes", {})
@@ -120,17 +124,36 @@ def observation(state):
         result.update(unit="", device_class="")
     if state["entity_id"].startswith("event."):
         result["unit"] = ""
-        result["event_type"] = "ring" if attrs.get("event_type") in RING_TYPES else ""
+        result["event_type"] = (str(attrs.get("event_type")) if attrs.get("event_type") in BUTTON_ACTIONS else "") if reading_class(state) == "button" else "ring" if attrs.get("event_type") in RING_TYPES else ""
     return result
 
 def catalog_entry(state):
     attrs = state.get("attributes", {})
     return {"entity_id": state["entity_id"], "name": str(attrs.get("friendly_name") or state["entity_id"])[:80], "device_class": "" if state["entity_id"].startswith("camera.") else reading_class(state)[:40], "unit": "" if state["entity_id"].startswith(("camera.", "event.")) else str(attrs.get("unit_of_measurement", ""))[:20]}
 
+def button_candidates(states, stamp):
+    """Local administrators can select a physical button action separately from its battery."""
+    rows = []
+    for source in states:
+        if not isinstance(source, dict):
+            continue
+        entity = source.get("entity_id", "")
+        attrs = source.get("attributes", {})
+        if not isinstance(attrs, dict):
+            continue
+        name = str(attrs.get("friendly_name", entity))
+        if not isinstance(entity, str) or not ENTITY.fullmatch(entity) or not entity.startswith("sensor.") or not entity.endswith("_battery") or not re.search(r"\b(button|remote|switch)\b", re.sub(r"[_]+", " ", name + " " + entity), re.I):
+            continue
+        rows.append({"entity_id": "event.homekind_" + hashlib.sha256(entity.encode()).hexdigest()[:16], "state": "unknown", "last_updated": stamp, "last_changed": stamp,
+                     "attributes": {"friendly_name": re.sub(r"\s+battery$", "", name, flags=re.I) + " press", "device_class": "button", "source_entity_id": entity, "event_type": ""}})
+    return rows
+
 def safe_reading(state):
     value = state.get("state", "")
     if not isinstance(value, str) or len(value) > 100:
         return False
+    if state["entity_id"].startswith("vacuum."):
+        return value in VACUUM_STATES
     if state["entity_id"].startswith("weather."):
         return value in WEATHER_STATES
     if state["entity_id"].startswith("camera."):
@@ -181,6 +204,7 @@ class Connector:
         self.stream_connected = False
         self.current = {}
         self.registry = {}
+        self.button_sources = {}
         self.stream = None
         if self.outbox_file.exists():
             if self.outbox_file.stat().st_size > 512000:
@@ -354,6 +378,27 @@ class Connector:
             self.pending[entity] = clean
             self.save_pending()
             self.wake.set()
+
+    def accept_button_event(self, event):
+        # Only an explicitly selected physical source can create a normalised press.
+        if not isinstance(event, dict) or event.get("event_type") != "homekind_button":
+            return
+        data = event.get("data", {})
+        if not isinstance(data, dict):
+            return
+        source = data.get("source_entity_id")
+        if not isinstance(source, str):
+            return
+        entity = self.button_sources.get(source)
+        action = data.get("action")
+        at = event.get("time_fired")
+        if not entity or entity not in self.allowlist or not isinstance(action, str) or action not in BUTTON_ACTIONS or not -5 <= self.clock() - utc_timestamp(at) <= 10:
+            return
+        previous = self.current.get(entity)
+        if not previous:
+            return
+        self.accept_state({**previous, "state": at, "last_updated": at, "last_changed": at,
+                           "attributes": {**previous["attributes"], "event_type": action}})
 
     def shared_weather(self):
         # Only locally selected weather entities; forecasts, locations, URLs and
@@ -531,6 +576,11 @@ class HAStream:
             raise BridgeError("Invalid Home Assistant entity list.")
         with self.c.lock:
             self.c.current = {}
+            self.c.button_sources = {}
+            for button in button_candidates(states, self.c.stamp()):
+                if button["entity_id"] in self.c.allowlist:
+                    self.c.button_sources[button["attributes"]["source_entity_id"]] = button["entity_id"]
+                    self.c.accept_state(button)
             for state in states:
                 self.c.accept_state(state)
             self.c.stream_connected = True
@@ -538,6 +588,8 @@ class HAStream:
             self.c.wake.set()
         for ident, kind in [(2, "entity"), (3, "device"), (4, "area")]:
             websocket.send(json.dumps({"id": ident, "type": "config/" + kind + "_registry/list"}))
+        if self.c.button_sources:
+            websocket.send(json.dumps({"id": 5, "type": "subscribe_events", "event_type": "homekind_button"}))
         registries = {}
         while not self.stopped.is_set():
             try:
@@ -549,6 +601,8 @@ class HAStream:
                 if message.get("success") and isinstance(message.get("result"), list):
                     registries[message["id"]] = message["result"]
                     self.registry(registries)
+            elif message.get("type") == "event" and message.get("id") == 5:
+                self.c.accept_button_event(message.get("event"))
             elif message.get("type") == "event" and message.get("id") == 1:
                 data = message.get("event", {}).get("data", {})
                 state = data.get("new_state")
@@ -564,7 +618,7 @@ class HAStream:
         areas = {a["area_id"]:a for a in registries.get(4, []) if isinstance(a, dict) and "area_id" in a}
         with self.c.lock:
             for entity in registries.get(2, []):
-                if not isinstance(entity, dict) or entity.get("entity_id") not in self.c.allowlist:
+                if not isinstance(entity, dict) or entity.get("entity_id") not in self.c.allowlist and entity.get("entity_id") not in self.c.button_sources:
                     continue
                 device = devices.get(entity.get("device_id"), {})
                 area_id = entity.get("area_id") or device.get("area_id")
@@ -572,6 +626,9 @@ class HAStream:
                     "ha_unique_id": entity.get("unique_id"), "ha_platform": entity.get("platform"),
                     "ha_device_id": entity.get("device_id"), "ha_area_id": area_id,
                     "ha_area_name": areas.get(area_id, {}).get("name"), "ha_entity_category": entity.get("entity_category")}.items() if v}
+            for source, virtual in self.c.button_sources.items():
+                if source in self.c.registry:
+                    self.c.registry[virtual] = {**self.c.registry[source], "ha_unique_id": "homekind-button-" + source}
 
     def run(self):
         delay = 2

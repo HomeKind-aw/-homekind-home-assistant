@@ -118,3 +118,34 @@ The connector carries short-lived WebRTC connection messages, not video, images,
 Camera failures use a separate worker and do not stop the sensor stream or light/plug command worker. An additional network relay may be needed for viewing away from home. Relay support is implemented but this pilot has no relay credentials configured. Actual G100 video/audio, iPad playback and outside-home viewing remain uncommissioned. The runtime API was checked against Home Assistant Core 2026.10.1.
 
 The pilot camera database, dedicated endpoint and HomeKind viewer are active. Update and commission the same Green installation before relying on live viewing. Physical G100 playback is not yet verified.
+
+## Physical buttons — Connector 0.10.0
+
+1. Press the physical button once for each supported action so Zigbee2MQTT can discover its MQTT device triggers.
+2. In Home Assistant → Settings → Automations, create an automation. Add a **Device** trigger, choose the button, and select its single-press action.
+3. Add a **Fire an event** action. Set event type to `homekind_button`. Use the real battery entity as `source_entity_id` and a fixed `action` matching this trigger (`single`, `double`, `hold`, `release` or `press`).
+4. In this connector's Web UI, select the separate button **press** entry and save. Keep your current pairing code blank when already paired.
+5. Add that press reading in HomeKind → Devices, assign it to the appropriate room or On person, then open Settings → Pilot checks. Complete the two-press commissioning session.
+
+Example for the pilot's existing Magic Button battery (replace the trigger device ID with the one chosen in Home Assistant):
+
+```yaml
+alias: HomeKind Magic Button
+triggers:
+  - trigger: device
+    domain: mqtt
+    device_id: REPLACE_WITH_THIS_BUTTON_DEVICE_ID
+    type: action
+    subtype: single
+actions:
+  - event: homekind_button
+    event_data:
+      source_entity_id: sensor.magic_button_battery
+      action: single
+mode: queued
+max: 10
+```
+
+The connector accepts events only for selected local button sources and fixed action names. It ignores old events, and a battery heartbeat never creates a press. This records a button action; it does not send a family message, call anyone or grant additional home controls. Configure any optional routines separately.
+
+Vacuum status is read-only. Select the actual `vacuum` entry to share Cleaning, Docked, Returning or Paused. Battery and dock settings do not establish cleaning activity.

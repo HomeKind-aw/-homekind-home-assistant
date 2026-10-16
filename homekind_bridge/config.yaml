@@ -1,6 +1,6 @@
 name: HomeKind Home Connector
 description: Weather, home, camera, doorbell and personal health readings, with optional light controls.
-version: "0.9.0"
+version: "0.10.0"
 slug: homekind_bridge
 init: false
 startup: application

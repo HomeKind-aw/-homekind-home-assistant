@@ -11,7 +11,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from bridge import AccessEnded, BridgeError, Connector, ENTITY, atomic_json, request_json, safe_entity, catalog_entry
+from bridge import AccessEnded, BridgeError, Connector, ENTITY, atomic_json, request_json, safe_entity, catalog_entry, button_candidates
 
 
 class SetupError(Exception):
@@ -66,6 +66,7 @@ class SetupManager:
             raise SetupError("Home Assistant is not ready. Wait a moment, then reload the sensor list.") from None
         if not isinstance(states, list) or len(states) > 20000:
             raise SetupError("The sensor list could not be read. Try reloading it.")
+        states = states + button_candidates(states, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         selected = set(self.options().get("entity_ids", []))
         result = []
         for state in states:

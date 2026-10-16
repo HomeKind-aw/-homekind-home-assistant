@@ -1,3 +1,11 @@
+## 0.10.0 — 17 October 2026
+
+- Read selected vacuum cleaning/docked states and normalised physical button events.
+- Offer a separate, explicitly selected button press input; its battery remains maintenance.
+- Support stable MQTT device triggers through a local Home Assistant automation, with a fixed action allowlist and replay checks.
+- Keep existing pairing, selections, weather, camera settings and read-only controls.
+- HomeKind guided commissioning now records starting state, action and return; actual household tests remain to be completed.
+
 ## 0.9.0 — 16 October 2026
 
 - Separate, opt-in camera allowlist; existing sensor selection and pairing are retained.

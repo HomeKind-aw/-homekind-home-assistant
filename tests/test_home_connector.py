@@ -205,7 +205,7 @@ class ExtendedReadingTests(unittest.TestCase):
         self.assertNotIn("video_url",bridge.observation(s))
         s["attributes"]["event_type"]="motion"
         self.assertEqual(bridge.observation(s)["event_type"],"")
-        self.assertFalse(bridge.safe_entity(self.source("event.remote", "2026-10-16T00:00:00Z", "", "button", "Remote")))
+        self.assertTrue(bridge.safe_entity(self.source("event.remote", "2026-10-16T00:00:00Z", "", "button", "Remote")))
         self.assertTrue(bridge.safe_entity(self.source("binary_sensor.front_doorbell", "on", "", "", "Front doorbell")))
         self.assertFalse(bridge.safe_reading({**s,"state":"not-a-time"}))
 
@@ -245,6 +245,40 @@ class ExtendedReadingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class CommissioningReadingTests(unittest.TestCase):
+    def test_vacuum_status_strips_attributes_and_rejects_actions(self):
+        state = {"entity_id": "vacuum.hoover", "state": "docked", "attributes": {"friendly_name": "Hoover", "access_token": "private", "entity_picture": "private-url"}}
+        self.assertTrue(bridge.safe_entity(state))
+        self.assertTrue(bridge.safe_reading(state))
+        self.assertEqual(bridge.observation(state)["device_class"], "vacuum")
+        self.assertNotIn("private", str(bridge.observation(state)))
+        self.assertFalse(bridge.safe_reading({**state, "state": "unlock"}))
+
+    def test_selected_button_uses_fixed_fresh_actions_and_not_battery_updates(self):
+        now = time.time()
+        stamp = bridge.dt.datetime.fromtimestamp(now, bridge.dt.timezone.utc).isoformat()
+        source = {"entity_id": "sensor.magic_button_battery", "state": "100", "last_updated": stamp, "last_changed": stamp, "attributes": {"friendly_name": "Magic Button Battery", "device_class": "battery"}}
+        candidate = bridge.button_candidates([source], stamp)[0]
+        with tempfile.TemporaryDirectory() as directory:
+            connector = bridge.Connector({"entity_ids": [candidate["entity_id"]]}, directory, clock=lambda: now + 1)
+            connector.tracked = [{"entity_id": candidate["entity_id"], "id": "button", "kind": "other"}]
+            connector.current[candidate["entity_id"]] = candidate
+            connector.button_sources = {source["entity_id"]: candidate["entity_id"]}
+            at = bridge.dt.datetime.fromtimestamp(now + 0.5, bridge.dt.timezone.utc).isoformat()
+            event = {"event_type": "homekind_button", "time_fired": at, "data": {"source_entity_id": source["entity_id"], "action": "single"}}
+            connector.accept_button_event({**event, "data": {**event["data"], "action": "turn_off"}})
+            self.assertEqual(connector.pending, {})
+            connector.accept_button_event({**event, "time_fired": "2020-01-01T00:00:00Z"})
+            self.assertEqual(connector.pending, {})
+            connector.accept_button_event(event)
+            self.assertEqual(connector.pending[candidate["entity_id"]]["event_type"], "single")
+            self.assertEqual(connector.pending[candidate["entity_id"]]["state"], at)
+
+    def test_normal_buttons_do_not_become_doorbells(self):
+        state = {"entity_id": "event.remote", "state": "2026-10-17T00:00:00Z", "attributes": {"device_class": "button", "event_type": "double"}}
+        self.assertEqual(bridge.observation(state)["device_class"], "button")
+        self.assertEqual(bridge.observation(state)["event_type"], "double")
 
 class WeatherReadingTests(unittest.TestCase):
     def source(self, **attrs):
