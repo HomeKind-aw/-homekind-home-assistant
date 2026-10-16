@@ -3,8 +3,10 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+import sys
 
 ROOT = Path(__file__).parents[1] / "homekind_bridge"
+sys.path.insert(0, str(ROOT))
 spec = importlib.util.spec_from_file_location('media_control', ROOT / 'media_control.py')
 media = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(media)

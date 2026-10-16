@@ -52,7 +52,7 @@ jobs:
         run: |
           docker run --rm --platform "$TARGET_PLATFORM" \
             --entrypoint /opt/bridge/bin/python homekind-connector:verify \
-            -m py_compile /bridge.py /camera_relay.py /media_control.py /setup_server.py /health_import.py
+            -m py_compile /bridge.py /camera_relay.py /media_control.py /radio_directory.py /setup_server.py /health_import.py
           docker run --rm --platform "$TARGET_PLATFORM" \
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" \
             --workdir /workspace --entrypoint /opt/bridge/bin/python \

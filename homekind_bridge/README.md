@@ -57,3 +57,9 @@ The cloud camera services are active. Actual G100 playback, iPad behaviour and o
 ### Media controls (0.12.0)
 
 In the connector Web UI, keep a TV or speaker selected for readings, then opt it into **Media controls & now playing**. Save without changing your pairing code. In its HomeKind room, open **Media choices**, enable permitted controls and select up to three favourites. Basic controls are shown only when supported. Favourites use the player's provided favourites/source list, with media addresses retained locally. Updating alone does not enable media controls or change light/plug control mode. Physical playback is not yet commissioned.
+
+### Free radio (0.13.0)
+
+Update and restart the connector, keeping your existing media selections and pairing. Add **Radio Browser** once under Home Assistant **Settings → Devices & services → Add integration**. Compatible players then offer **Radio** in HomeKind. The verified household owner can tap a heart to save up to three favourites, shared across the household. Australian homes prioritise ABC Radio Melbourne, ABC Classic and ABC Jazz when listed by Radio Browser; other stations remain browsable. Existing player favourites remain available. No radio account, API key or HomeKind subscription is required for the directory. Internet and a compatible player are required for playback.
+
+Discovery uses Home Assistant's authenticated `media_source/browse_media` WebSocket API in a separate worker. The connector retains station identifiers locally and resolves opaque playback requests only against its discovered catalogue. No stream URLs or arbitrary media addresses are accepted from HomeKind.

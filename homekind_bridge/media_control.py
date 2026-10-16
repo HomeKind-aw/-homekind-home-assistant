@@ -5,12 +5,13 @@ import math
 import re
 import threading
 import time
+from radio_directory import RadioDirectory
 
 FEATURES = {"pause": 1, "volume": 4, "play": 16384}
 
 
 def short_text(value, limit):
-    if not isinstance(value, str) or re.search(r"https?://|rtsp://|[\x00-\x08\x0b-\x1f]", value, re.I):
+    if not isinstance(value, str) or re.search(r"[a-z][a-z0-9+.-]*://|[\x00-\x08\x0b-\x1f]", value, re.I):
         return ""
     return value.strip()[:limit]
 
@@ -24,6 +25,8 @@ def playback(state, choices):
               "choices": [{"key": key, "label": item["label"]} for key, item in choices.items()]}
     if choices and features & (512 | 2048):
         result["features"].append("favourite")
+    if features & 512:
+        result["features"].append("radio")
     if result["state"] in ("playing", "paused", "buffering"):
         result.update(title=short_text(attrs.get("media_title"), 160), artist=short_text(attrs.get("media_artist"), 120))
     volume = attrs.get("volume_level")
@@ -41,6 +44,7 @@ class MediaControls(threading.Thread):
         self.browsed_at = {}
         self.next_sync = 0
         self.last_payload = None
+        self.radio = RadioDirectory(connector, self.selected)
 
     def browse(self, entity, state):
         """Keep playable IDs locally; share only opaque references and short names."""
@@ -90,9 +94,10 @@ class MediaControls(threading.Thread):
                 if time.monotonic() - self.browsed_at.get(entity, -1000) > 180:
                     self.browse(entity, state)
                 rows.append(playback(state, self.choices.get(entity, {})))
-        if force or rows != self.last_payload or time.monotonic() >= self.next_sync:
-            c.cloud("media-sync", {"players": rows})
-            self.last_payload = rows
+        payload = {"players": rows, "radio": self.radio.catalogue() if connected else {"status": "unavailable", "country": "AU", "stations": []}}
+        if force or payload != self.last_payload or time.monotonic() >= self.next_sync:
+            c.cloud("media-sync", payload)
+            self.last_payload = payload
             self.next_sync = time.monotonic() + 10
 
     def execute(self, claim):
@@ -119,6 +124,11 @@ class MediaControls(threading.Thread):
                 if target:
                     service = target["action"]
                     data.update(target["value"])
+            elif action == "radio" and isinstance(value, str):
+                target = self.radio.resolve(value)
+                if target:
+                    service = "play_media"
+                    data.update(target)
         if service in ("media_play", "media_pause", "volume_set", "play_media", "select_source"):
             try:
                 c.ha("services/media_player/" + service, data)
@@ -139,6 +149,8 @@ class MediaControls(threading.Thread):
 
     def run(self):
         c = self.connector
+        if self.selected:
+            self.radio.start()
         delay = .75
         while not c.stopping():
             if not c.ready.wait(.2):

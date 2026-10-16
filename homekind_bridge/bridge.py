@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.12.0"
+VERSION = "0.13.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"

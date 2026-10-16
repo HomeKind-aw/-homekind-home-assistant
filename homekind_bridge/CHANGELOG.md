@@ -1,5 +1,13 @@
 ## 0.12.0
 
+## 0.13.0 — Free radio and household favourites
+
+- Discover free Radio Browser stations through Home Assistant, using the home's country and Australian presets where available.
+- Play a selected station on an explicitly opted-in compatible media player. Station identifiers and stream addresses stay local; HomeKind receives only public labels and opaque keys.
+- Keep station discovery independent of sensor updates and playback commands. Missing radio setup or an unavailable directory leaves existing controls working.
+- Share up to three radio favourites across the household; changes use verified owner access in HomeKind.
+- Preserve existing pairing, selected devices, Sonos favourites, health imports and light/plug control mode.
+
 - Added a separate local media-player control choice, off by default.
 - Compact room panel supports now playing, play/pause, volume and up to three favourites where supported.
 - Media addresses and artwork stay in Home Assistant; track names are not written to history.
