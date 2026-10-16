@@ -72,11 +72,11 @@ class HomeSetupTests(unittest.TestCase):
         self.assertEqual(headers["Cache-Control"], "no-store")
         self.assertIn("script-src 'self'", headers["Content-Security-Policy"])
 
-    def test_entity_discovery_only_uses_supervisor_core_and_omits_readings_and_private_classes(self):
+    def test_entity_discovery_includes_camera_metadata_but_omits_readings(self):
         status, _, body = self.http("GET", "/api/entities")
         self.assertEqual(status, 200)
         result = json.loads(body)["entities"]
-        self.assertEqual({x["entity_id"] for x in result}, {"sensor.room_temperature", "binary_sensor.door"})
+        self.assertEqual({x["entity_id"] for x in result}, {"sensor.room_temperature", "binary_sensor.door", "camera.private"})
         self.assertFalse(any("state" in x or "attributes" in x for x in result))
         self.assertEqual(self.requests[0][0], "http://supervisor/core/api/states")
         self.assertEqual(self.requests[0][1], "test-supervisor-secret")
@@ -114,7 +114,7 @@ class HomeSetupTests(unittest.TestCase):
         self.assertFalse(self.manager.settings.exists())
 
     def test_invalid_unsupported_duplicate_and_unknown_entities_never_persist(self):
-        for entities in [["camera.private"], ["sensor.heart"], ["sensor.missing"], [None], ["binary_sensor.door"] * 2, ["sensor.room_temperature"] * 251]:
+        for entities in [["person.parent"], ["sensor.heart"], ["sensor.missing"], [None], ["binary_sensor.door"] * 2, ["sensor.room_temperature"] * 251]:
             status, _, _ = self.configure({"pairing_code": "a" * 64, "entity_ids": entities})
             self.assertEqual(status, 400)
         self.assertFalse(self.manager.settings.exists())
