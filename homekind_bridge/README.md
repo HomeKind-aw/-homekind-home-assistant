@@ -43,3 +43,12 @@ Allocate health sensors to **On person**, then each person opens **My sharing â†
 Health values live in a separate protected workspace. Household ownership and device access do not grant access to another person's readings. Steps, sleep and resting heart rate each have a sharing category; the remaining metrics use **Other health readings**. Choose recipients or keep a category for yourself. Personal readings appear in your private home panel and My sharing, never in shared room metrics, household activity, summaries or per-reading notifications. Pausing the category or disconnecting the source stops collection and clears the saved reading. Only the latest report is retained, expires after seven days, and is cleared by the minute maintenance job. The displayed timestamp is when Home Assistant reported the value, not a claim about when a measurement was physically taken.
 
 No new camera, doorbell or health service controls are added. Light and switch On/Off controls retain their existing local selection, per-device permission and confirmation checks.
+
+
+## Live camera viewing (0.9.0)
+
+Update this same connector installation to **0.9.0**, then open its Web UI. Keep the camera selected in readings and also tick it under **Live camera view**. Save. Pairing and existing selections are retained. Live viewing remains off until this separate local choice is enabled.
+
+In HomeKind, open the camera in its room, choose **Live-view choices**, enable viewing and select approved people. An approved person can then choose **View camera**. The resident can pause sharing. Video is receive-only, sound starts muted, and closing or hiding the view stops it. Sessions end after five minutes.
+
+The cloud camera services are active. Actual G100 playback, iPad behaviour and outside-home connectivity still require commissioning. No relay credentials are configured for this pilot. See the Documentation tab for the complete checks.

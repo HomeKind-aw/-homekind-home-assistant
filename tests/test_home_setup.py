@@ -85,10 +85,22 @@ class HomeSetupTests(unittest.TestCase):
     def test_pairing_and_allowlist_default_to_read_only(self):
         status, _, _ = self.configure({"pairing_code": "a" * 64, "entity_ids": ["sensor.room_temperature"]})
         self.assertEqual(status, 200)
-        self.assertEqual(self.manager.options(), {"read_only": True, "pairing_code": "a" * 64, "entity_ids": ["sensor.room_temperature"]})
+        self.assertEqual(self.manager.options(), {"read_only": True, "pairing_code": "a" * 64, "entity_ids": ["sensor.room_temperature"], "live_camera_entity_ids": []})
         self.assertEqual(self.manager.settings.stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.manager.directory.stat().st_mode & 0o777, 0o700)
         self.assertTrue(self.manager.changed.is_set())
+
+    def test_live_view_requires_a_separate_selected_camera_and_survives_updates(self):
+        base = {"pairing_code": "a" * 64, "entity_ids": ["camera.private"]}
+        status, _, _ = self.configure({**base, "live_camera_entity_ids": ["camera.private"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.manager.options()["live_camera_entity_ids"], ["camera.private"])
+        status, _, _ = self.configure(base)
+        self.assertEqual(status, 200)
+        self.assertEqual(self.manager.options()["live_camera_entity_ids"], ["camera.private"])
+        for invalid in [["camera.other"], ["sensor.room_temperature"], [{}], "camera.private"]:
+            status, _, _ = self.configure({**base, "live_camera_entity_ids": invalid})
+            self.assertEqual(status, 400)
 
     def test_configuration_rejects_invalid_control_flags_and_external_endpoints(self):
         for extra in [{"read_only": "false"}, {"ha_url": "https://attacker.invalid"}, {"cloud_url": "https://attacker.invalid"}]:

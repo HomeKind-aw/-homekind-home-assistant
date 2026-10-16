@@ -1,4 +1,4 @@
-# HomeKind Home Connector 0.8.0
+# HomeKind Home Connector 0.9.0
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, tick the sensors you choose and connect. It reuses the existing HomeKind bridge service and runs on your Green.
 
@@ -105,3 +105,16 @@ Allocate health sensors to **On person**, then each person opens **My sharing â†
 Health values live in a separate protected workspace. Household ownership and device access do not grant access to another person's readings. Steps, sleep and resting heart rate each have a sharing category; the remaining metrics use **Other health readings**. Choose recipients or keep a category for yourself. Personal readings appear in your private home panel and My sharing, never in shared room metrics, household activity, summaries or per-reading notifications. Pausing the category or disconnecting the source stops collection and clears the saved reading. Only the latest report is retained, expires after seven days, and is cleared by the minute maintenance job. The displayed timestamp is when Home Assistant reported the value, not a claim about when a measurement was physically taken.
 
 No new camera, doorbell or health service controls are added. Light and switch On/Off controls retain their existing local selection, per-device permission and confirmation checks.
+
+
+## Live camera viewing â€” 0.9.0
+
+This build adds a separate **Live camera view** choice in the connector. Camera status continues through the existing sensor connection. Live view is off by default, including after an update.
+
+Update this same connector installation, open **Web UI**, keep the camera selected in readings, then tick it under **Live camera view** and save. Pairing and existing controls are retained. In HomeKind, open the camera in its room and choose **Live-view choices**, enable viewing and select approved people. An approved person can then choose **View camera**. The resident can pause live camera sharing for the home without gaining access to an unshared feed.
+
+The connector carries short-lived WebRTC connection messages, not video, images, RTSP addresses or Home Assistant credentials. Video is receive-only, sound starts muted, and no webcam or microphone permission is requested. Closing the view, leaving the page or hiding the app stops the viewing session. Sessions end after five minutes; open the camera again to continue.
+
+Camera failures use a separate worker and do not stop the sensor stream or light/plug command worker. An additional network relay may be needed for viewing away from home. Relay support is implemented but this pilot has no relay credentials configured. Actual G100 video/audio, iPad playback and outside-home viewing remain uncommissioned. The runtime API was checked against Home Assistant Core 2026.10.1.
+
+The pilot camera database, dedicated endpoint and HomeKind viewer are active. Update and commission the same Green installation before relying on live viewing. Physical G100 playback is not yet verified.

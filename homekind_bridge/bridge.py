@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -165,6 +165,10 @@ class Connector:
         if not isinstance(entities, list) or len(entities) > 250 or any(not isinstance(e, str) or not ENTITY.fullmatch(e) for e in entities):
             raise BridgeError("Choose at most 250 supported entity IDs in the local allowlist.")
         self.allowlist = set(entities)
+        live = options.get("live_camera_entity_ids", [])
+        if not isinstance(live, list) or len(live) > 20 or any(not isinstance(e, str) or not re.fullmatch(r"camera\.[a-z0-9_]{1,150}", e) or e not in self.allowlist for e in live):
+            raise BridgeError("Choose live cameras from your selected camera entities.")
+        self.live_cameras = set(live)
         self.outbox_file = self.directory / "pending.json"
         self.pending = {}
         self.dropped = 0
@@ -423,6 +427,15 @@ class Connector:
         on_status("paired")
         self.stream = HAStream(self)
         self.stream.start()
+        camera_worker = None
+        if self.live_cameras:
+            try:
+                from camera_relay import CameraRelay
+                camera_worker = CameraRelay(self)
+                camera_worker.start()
+            except Exception:
+                camera_worker = None
+                logging.warning("Live camera viewing could not start; home readings continue.")
         worker = None
         if not self.read_only:
             worker = threading.Thread(target=self.command_loop, args=(on_status,), name="homekind-commands", daemon=True)
@@ -456,6 +469,9 @@ class Connector:
             self.halt.set()
             self.wake.set()
             self.stream.stop()
+            if camera_worker:
+                camera_worker.stop()
+                camera_worker.join(timeout=2)
             if worker:
                 worker.join(timeout=30)
 
