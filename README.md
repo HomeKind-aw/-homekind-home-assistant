@@ -1,4 +1,4 @@
-# HomeKind Home Connector 0.9.0
+# HomeKind Home Connector 0.12.0
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, tick the sensors you choose and connect. It reuses the existing HomeKind bridge service and runs on your Green.
 
@@ -83,3 +83,14 @@ The connector carries short-lived WebRTC connection messages, not video, images,
 Camera failures use a separate worker and do not stop the sensor stream or light/plug command worker. An additional network relay may be needed for viewing away from home. Relay support is implemented but this pilot has no relay credentials configured. Actual G100 video/audio, iPad playback and outside-home viewing remain uncommissioned. The runtime API was checked against Home Assistant Core 2026.10.1.
 
 The pilot camera database, dedicated endpoint and HomeKind viewer are active. Update and commission the same Green installation before relying on live viewing. Physical G100 playback is not yet verified.
+
+
+## Compact media controls — 0.12.0
+
+Update this same connector installation and open its Web UI. Keep the intended media players selected under readings. Under **Media controls & now playing**, tick the players you want and save. This choice starts off on existing installations and is independent of light/plug controls. In HomeKind, open the room's compact media panel, choose **Enable media controls**, and save the room's permitted control choice and up to three favourites. No new pairing code is needed.
+
+The panel shows current track/artist, play or pause and volume where the player supports them. Multiple players share one panel with a selector. Favourite names come from the player's browseable favourites or input sources; unsupported players keep their basic controls. Streaming-service accounts still need to be configured in Home Assistant or the player's app.
+
+Only the latest selected now-playing details are shared with permitted room readers. Titles are not added to household activity or summaries. Media addresses, artwork and account credentials remain local. Removing the local selection clears the shared details; offline metadata expires after one hour. Commands use a separate expiring queue, fresh session/room checks and one-time authorisation. A timeout is not retried as a physical action. Existing sensors, light/plug controls and camera selections are preserved.
+
+Software verification is complete; actual Sonos/Cast playback and mobile interaction must be commissioned in the home. Physical button mappings, spoken reminders and media routines are separate work.

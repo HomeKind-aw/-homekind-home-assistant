@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.11.0"
+VERSION = "0.12.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -247,6 +247,9 @@ class Connector:
         if not isinstance(live, list) or len(live) > 20 or any(not isinstance(e, str) or not re.fullmatch(r"camera\.[a-z0-9_]{1,150}", e) or e not in self.allowlist for e in live):
             raise BridgeError("Choose live cameras from your selected camera entities.")
         self.live_cameras = set(live)
+        media = options.get("media_control_entity_ids", [])
+        if not isinstance(media, list) or len(media) > 20 or len(set(media)) != len(media) or any(not isinstance(e, str) or not re.fullmatch(r"media_player\.[a-z0-9_]{1,150}", e) or e not in self.allowlist for e in media):
+            raise BridgeError("Choose media controls from your selected media players.")
         self.outbox_file = self.directory / "pending.json"
         self.pending = {}
         self.dropped = 0
@@ -534,6 +537,13 @@ class Connector:
         on_status("paired")
         self.stream = HAStream(self)
         self.stream.start()
+        media_worker = None
+        try:
+            from media_control import MediaControls
+            media_worker = MediaControls(self)
+            media_worker.start()
+        except Exception:
+            logging.warning("Media controls could not start; home readings continue.")
         camera_worker = None
         if self.live_cameras:
             try:
@@ -576,6 +586,8 @@ class Connector:
             self.halt.set()
             self.wake.set()
             self.stream.stop()
+            if media_worker:
+                media_worker.join(timeout=2)
             if camera_worker:
                 camera_worker.stop()
                 camera_worker.join(timeout=2)

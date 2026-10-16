@@ -73,7 +73,7 @@ class SetupManager:
             if not isinstance(options, dict):
                 raise SetupError("The saved settings need to be checked locally.")
             # Local Home Assistant administrators choose whether commands are allowed.
-            return {"read_only": options.get("read_only", True) is not False, "entity_ids": options.get("entity_ids", []), "pairing_code": options.get("pairing_code", ""), "live_camera_entity_ids": options.get("live_camera_entity_ids", [])}
+            return {"read_only": options.get("read_only", True) is not False, "entity_ids": options.get("entity_ids", []), "pairing_code": options.get("pairing_code", ""), "live_camera_entity_ids": options.get("live_camera_entity_ids", []), "media_control_entity_ids": options.get("media_control_entity_ids", [])}
 
     def paired(self):
         if not self.credentials.exists():
@@ -104,7 +104,7 @@ class SetupManager:
         return result[:4000]
 
     def configure(self, data):
-        if not isinstance(data, dict) or set(data) - {"pairing_code", "entity_ids", "read_only", "live_camera_entity_ids"}:
+        if not isinstance(data, dict) or set(data) - {"pairing_code", "entity_ids", "read_only", "live_camera_entity_ids", "media_control_entity_ids"}:
             raise SetupError("Check the pairing code and selected sensors.")
         if "read_only" in data and not isinstance(data["read_only"], bool):
             raise SetupError("Choose whether device controls are allowed.")
@@ -121,6 +121,9 @@ class SetupManager:
         if not isinstance(live, list) or len(live) > 20 or any(not isinstance(e, str) or not re.fullmatch(r"camera\.[a-z0-9_]{1,150}", e) or e not in entities for e in live) or len(set(live)) != len(live):
             raise SetupError("Choose live cameras from the selected camera readings.")
         pairing = data.get("pairing_code", "")
+        media = data.get("media_control_entity_ids", [e for e in self.options().get("media_control_entity_ids", []) if e in entities])
+        if not isinstance(media, list) or len(media) > 20 or any(not isinstance(e, str) or not re.fullmatch(r"media_player\.[a-z0-9_]{1,150}", e) or e not in entities for e in media) or len(set(media)) != len(media):
+            raise SetupError("Choose media controls from your selected media players.")
         if not isinstance(pairing, str) or len(pairing) > 256:
             raise SetupError("Paste the pairing code from HomeKind.")
         pairing = pairing.strip()
@@ -131,7 +134,7 @@ class SetupManager:
         if not pairing and (not self.paired() or self.phase == "pairing_required"):
             raise SetupError("Create a pairing code in HomeKind, then paste it here.")
         with self.lock:
-            atomic_json(self.settings, {"pairing_code": pairing, "entity_ids": entities, "read_only": read_only, "live_camera_entity_ids": live})
+            atomic_json(self.settings, {"pairing_code": pairing, "entity_ids": entities, "read_only": read_only, "live_camera_entity_ids": live, "media_control_entity_ids": media})
             self.phase = "starting"
             self.message = "Settings saved. Connecting your selected sensors…"
             self.changed.set()
@@ -143,7 +146,7 @@ class SetupManager:
             connected = bool(c and c.stream_connected)
             phase = "waiting" if self.phase == "connected" and not connected else self.phase
             message = "Waiting for a fresh Home Assistant connection." if phase != self.phase else self.message
-            return {"phase": phase, "message": message, "paired": self.paired(), "button_inputs": list(c.button_status.values()) if c else [], "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": self.options()["read_only"], "live_camera_entity_ids": self.options().get("live_camera_entity_ids", [])}
+            return {"phase": phase, "message": message, "paired": self.paired(), "button_inputs": list(c.button_status.values()) if c else [], "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": self.options()["read_only"], "live_camera_entity_ids": self.options().get("live_camera_entity_ids", []), "media_control_entity_ids": self.options().get("media_control_entity_ids", [])}
 
     def run(self):
         while not self.stopped.is_set():

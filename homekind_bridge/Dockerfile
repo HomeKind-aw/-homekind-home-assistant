@@ -5,5 +5,5 @@ RUN python3 -m venv /opt/bridge && /opt/bridge/bin/pip install --no-cache-dir -r
 ARG BUILD_VERSION
 ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" io.hass.type="app" io.hass.arch="${BUILD_ARCH}"
-COPY bridge.py camera_relay.py setup_server.py health_import.py index.html setup.js health.js setup.css logo.png nunito.ttf inter.ttf OFL-Inter.txt OFL-Nunito.txt /
+COPY bridge.py camera_relay.py media_control.py setup_server.py health_import.py index.html setup.js health.js setup.css logo.png nunito.ttf inter.ttf OFL-Inter.txt OFL-Nunito.txt /
 CMD ["/command/with-contenv", "/opt/bridge/bin/python", "-u", "/setup_server.py"]

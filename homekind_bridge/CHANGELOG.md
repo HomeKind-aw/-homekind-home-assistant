@@ -1,3 +1,11 @@
+## 0.12.0
+
+- Added a separate local media-player control choice, off by default.
+- Compact room panel supports now playing, play/pause, volume and up to three favourites where supported.
+- Media addresses and artwork stay in Home Assistant; track names are not written to history.
+- Commands use expiring, permission-checked, one-time leases; media failures do not block sensors.
+- Existing pairing, light/plug mode, camera choices and sensor selections are preserved.
+
 ## 0.11.0
 
 - Added HomeKind-owned local CSV and JSON health-report imports, with explicit column mapping, preview and confirmation before creating HA readings.

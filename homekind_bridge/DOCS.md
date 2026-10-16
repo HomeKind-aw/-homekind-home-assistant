@@ -152,3 +152,8 @@ Raw reports are processed in memory only and are not saved or sent to HomeKind. 
 The imported readings are republished to HA every minute so they survive an HA restart. Their original source date never changes. The personal HomeKind display explicitly identifies the file source and its original date; a fresh HA report timestamp is not a new physical measurement. HomeKind separately enforces expiry using that source date, and collection pauses/removal retain the protected personal workspace's existing access rules. File imports are excluded from household summaries, alerts and general home activity. No live Garmin connection or real-device test is implied by passing software tests.
 
 References: https://support.garmin.com/en-IN/?faq=W1TvTPW8JZ6LfJSfK512Q8 and https://developer.garmin.com/gc-developer-program/health-api/
+
+
+### Media controls (0.12.0)
+
+In the connector Web UI, keep a TV or speaker selected for readings, then opt it into **Media controls & now playing**. Save without changing your pairing code. In its HomeKind room, open **Media choices**, enable permitted controls and select up to three favourites. Basic controls are shown only when supported. Favourites use the player's provided favourites/source list, with media addresses retained locally. Updating alone does not enable media controls or change light/plug control mode. Physical playback is not yet commissioned.

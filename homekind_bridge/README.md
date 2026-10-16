@@ -52,3 +52,8 @@ Update this same connector installation to **0.9.0**, then open its Web UI. Keep
 In HomeKind, open the camera in its room, choose **Live-view choices**, enable viewing and select approved people. An approved person can then choose **View camera**. The resident can pause sharing. Video is receive-only, sound starts muted, and closing or hiding the view stops it. Sessions end after five minutes.
 
 The cloud camera services are active. Actual G100 playback, iPad behaviour and outside-home connectivity still require commissioning. No relay credentials are configured for this pilot. See the Documentation tab for the complete checks.
+
+
+### Media controls (0.12.0)
+
+In the connector Web UI, keep a TV or speaker selected for readings, then opt it into **Media controls & now playing**. Save without changing your pairing code. In its HomeKind room, open **Media choices**, enable permitted controls and select up to three favourites. Basic controls are shown only when supported. Favourites use the player's provided favourites/source list, with media addresses retained locally. Updating alone does not enable media controls or change light/plug control mode. Physical playback is not yet commissioned.

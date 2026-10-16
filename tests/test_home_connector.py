@@ -94,7 +94,7 @@ class ConnectorTests(unittest.TestCase):
             c=bridge.Connector({"read_only":False}, directory)
             c.enrol=lambda:None;c.ready.set()
             def cloud(operation, data=None):
-                return {"commands":[claims.pop()] if claims else []}
+                return {"commands":[claims.pop()] if claims else []} if operation == "poll" else {"ok": True}
             c.cloud=cloud
             def execute(claim): entered.set();release.wait(4)
             c.execute=execute
