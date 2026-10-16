@@ -158,4 +158,24 @@ class ConnectorTests(unittest.TestCase):
             with self.assertRaises(bridge.AccessEnded):c.run(settings)
             self.assertFalse(settings.is_set())
 
+    def test_media_players_are_supported_without_sending_titles_or_artwork(self):
+        fixture={**self.state(),"entity_id":"media_player.living_room_tv","state":"playing","attributes":{"device_class":"tv","friendly_name":"Living room TV","media_title":"Private programme","media_artist":"Private artist","entity_picture":"https://private.invalid/art"}}
+        self.assertTrue(bridge.safe_entity(fixture));self.assertTrue(bridge.safe_reading(fixture))
+        reading=bridge.observation(fixture);self.assertEqual(reading['state'],'playing');self.assertEqual(reading['device_class'],'tv');self.assertNotIn('Private',str(reading));self.assertNotIn('entity_picture',str(reading))
+        for klass in ['speaker','receiver','projector','']:
+            fixture['attributes']['device_class']=klass;self.assertTrue(bridge.safe_entity(fixture))
+
+    def test_media_players_only_send_known_playback_states(self):
+        for value in ['playing','paused','idle','buffering','on','off','standby','unknown','unavailable']:
+            self.assertTrue(bridge.safe_reading({'entity_id':'media_player.speaker','state':value}))
+        self.assertFalse(bridge.safe_reading({'entity_id':'media_player.speaker','state':'Private programme title'}))
+        self.assertTrue(bridge.ENTITY.fullmatch('media_player.living_room_tv'))
+
+    def test_media_players_cannot_use_light_or_plug_service_commands(self):
+        calls=[]
+        with tempfile.TemporaryDirectory() as directory:
+            c=bridge.Connector({'read_only':False,'entity_ids':['media_player.tv']},directory,request=lambda *args:calls.append(args));c.ha_token='local'
+            c.execute({'id':'synthetic','lease_id':'synthetic','entity_id':'media_player.tv'})
+        self.assertEqual(calls,[])
+
 if __name__ == "__main__": unittest.main()
