@@ -20,11 +20,11 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
-ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch)\.[a-z0-9_]{1,150}$")
+ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player)\.[a-z0-9_]{1,150}$")
 SENSOR_CLASSES = {"temperature", "humidity", "illuminance", "battery", "power", "energy", "voltage", "current", "signal_strength", "carbon_dioxide", "pm25", "pm10", "water"}
 BINARY_CLASSES = {"motion", "occupancy", "opening", "door", "window", "moisture", "vibration", "connectivity", "battery", "problem"}
 
@@ -66,7 +66,7 @@ def safe_entity(state):
     if not isinstance(attrs, dict):
         return False
     klass = attrs.get("device_class", "")
-    return domain in ("light", "switch") or (domain == "sensor" and klass in SENSOR_CLASSES) or (domain == "binary_sensor" and klass in BINARY_CLASSES)
+    return domain in ("light", "switch", "media_player") or (domain == "sensor" and klass in SENSOR_CLASSES) or (domain == "binary_sensor" and klass in BINARY_CLASSES)
 
 def observation(state):
     attrs = state.get("attributes", {})
@@ -80,6 +80,8 @@ def safe_reading(state):
     value = state.get("state", "")
     if not isinstance(value, str) or len(value) > 100:
         return False
+    if state["entity_id"].startswith("media_player."):
+        return value in ("playing", "paused", "idle", "buffering", "on", "off", "standby", "unknown", "unavailable")
     if state["entity_id"].startswith("sensor."):
         return value in ("unknown", "unavailable") or bool(re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", value)) and math.isfinite(float(value))
     return value in ("on", "off", "unknown", "unavailable")
