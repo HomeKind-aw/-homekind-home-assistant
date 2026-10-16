@@ -11,7 +11,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from bridge import AccessEnded, BridgeError, Connector, ENTITY, atomic_json, request_json, safe_entity
+from bridge import AccessEnded, BridgeError, Connector, ENTITY, atomic_json, request_json, safe_entity, catalog_entry
 
 
 class SetupError(Exception):
@@ -72,7 +72,7 @@ class SetupManager:
             if not isinstance(state, dict) or not safe_entity(state):
                 continue
             attrs = state.get("attributes", {})
-            result.append({"entity_id": state["entity_id"], "name": str(attrs.get("friendly_name") or state["entity_id"])[:160], "device_class": str(attrs.get("device_class", ""))[:40], "selected": state["entity_id"] in selected})
+            result.append({**catalog_entry(state), "selected": state["entity_id"] in selected})
         result.sort(key=lambda row: (not row["selected"], row["name"].casefold()))
         return result[:4000]
 
