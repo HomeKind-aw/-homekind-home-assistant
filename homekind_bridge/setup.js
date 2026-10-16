@@ -7,7 +7,7 @@ async function api(path,body){
 }
 function error(message=''){byId('error').textContent=message;byId('error').hidden=!message;}
 function count(){byId('selected-count').textContent=state.selected.size+' selected';}
-function recommended(entity){const k=entity.device_class||'',name=(entity.name+' '+entity.entity_id).replace(/[_.-]+/g,' ');return !/\b(crossfade|loudness|autoplay|surround|child lock|do not disturb|auto off enabled|auto update|indicator|led|adaptive|sensitivity|selfidentification|interference|calibration|night sound|speech enhancement)\b/i.test(name)&&!['voltage','current','signal_strength','connectivity','problem'].includes(k);}
+function recommended(entity){if(entity.entity_id.startsWith('media_player.'))return true;const k=entity.device_class||'',name=(entity.name+' '+entity.entity_id).replace(/[_.-]+/g,' ');return !/\b(crossfade|loudness|autoplay|surround|child lock|do not disturb|auto off enabled|auto update|indicator|led|adaptive|sensitivity|selfidentification|interference|calibration|night sound|speech enhancement)\b/i.test(name)&&!['voltage','current','signal_strength','connectivity','problem'].includes(k);}
 function visibleEntities(){const search=byId('search').value.trim().toLocaleLowerCase();return state.entities.filter(entity=>(byId('show-other').checked||recommended(entity)||state.selected.has(entity.entity_id))&&(entity.name+' '+entity.entity_id).toLocaleLowerCase().includes(search));}
 function renderEntities(){
  const search=byId('search').value.trim().toLocaleLowerCase(),matched=visibleEntities();
