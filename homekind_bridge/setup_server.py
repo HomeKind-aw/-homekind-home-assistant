@@ -12,6 +12,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from bridge import AccessEnded, BridgeError, Connector, ENTITY, atomic_json, request_json, safe_entity, catalog_entry, button_candidates
+from health_import import HealthImports, HealthImportError
 
 
 class SetupError(Exception):
@@ -35,6 +36,31 @@ class SetupManager:
         self.message = "Choose the sensors to share, then connect your household."
         self.phase = "setup"
         self.last_cloud_at = None
+        self.health = None
+        try:
+            self.health = HealthImports(self.directory, self.publish_health, atomic_json)
+            threading.Thread(target=self.health.run, args=(self.stopped,), name="homekind-local-health", daemon=True).start()
+        except (HealthImportError, OSError, ValueError, RecursionError):
+            pass  # Optional health-store failure cannot stop ordinary home sensors.
+
+    def publish_health(self, entity, state):
+        if not re.fullmatch(r"sensor\.homekind_health_[0-9a-f]{12}_(steps|sleep|resting_hr)", entity):
+            raise SetupError("Choose a HomeKind-owned health source.")
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            raise SetupError("Open this app inside Home Assistant.")
+        self.request("http://supervisor/core/api/states/" + entity, token, state, timeout=3)
+
+    def health_action(self, action, data):
+        if not self.health or not isinstance(data, dict):
+            raise SetupError("The local health import is unavailable. Check the app locally.")
+        actions = {"inspect": self.health.inspect, "preview": self.health.preview, "commit": self.health.commit, "remove": self.health.remove}
+        if action not in actions:
+            raise SetupError("Choose a supported health import action.")
+        try:
+            return actions[action](data)
+        except HealthImportError as error:
+            raise SetupError(str(error)) from None
 
     def options(self):
         with self.lock:
@@ -220,7 +246,10 @@ class SetupHandler(BaseHTTPRequestHandler):
                 return self.reply(200, {"entities": self.server.manager.entities()})
             if path == "/api/setup":
                 return self.reply(200, {"csrf": self.server.manager.csrf})
-            files = {"/": ("index.html", "text/html"), "/setup.js": ("setup.js", "text/javascript"), "/setup.css": ("setup.css", "text/css"), "/logo.png": ("logo.png", "image/png"), "/nunito.ttf": ("nunito.ttf", "font/ttf"), "/inter.ttf": ("inter.ttf", "font/ttf")}
+            if path == "/api/health/status":
+                health = self.server.manager.health
+                return self.reply(200, health.status() if health else {"profiles": [], "automatic_sync": False, "message": "Local health import unavailable. Check the app locally."})
+            files = {"/": ("index.html", "text/html"), "/setup.js": ("setup.js", "text/javascript"), "/health.js": ("health.js", "text/javascript"), "/setup.css": ("setup.css", "text/css"), "/logo.png": ("logo.png", "image/png"), "/nunito.ttf": ("nunito.ttf", "font/ttf"), "/inter.ttf": ("inter.ttf", "font/ttf")}
             if path in files:
                 name, kind = files[path]
                 return self.reply(200, (Path(__file__).parent / name).read_bytes(), kind)
@@ -233,7 +262,8 @@ class SetupHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.permitted():
             return self.reply(403, {"error": "Open through Home Assistant."})
-        if self.path != "/api/configure":
+        health_action = self.path.removeprefix("/api/health/") if self.path.startswith("/api/health/") else None
+        if self.path != "/api/configure" and health_action not in ("inspect", "preview", "commit", "remove"):
             return self.reply(404, {"error": "Not found."})
         token = self.headers.get("X-HomeKind-Setup", "")
         if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token) or not hmac.compare_digest(token, self.server.manager.csrf):
@@ -241,13 +271,13 @@ class SetupHandler(BaseHTTPRequestHandler):
         if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
             return self.reply(415, {"error": "Use the setup form."})
         length = self.headers.get("Content-Length", "")
-        if not length.isdigit() or not 1 <= int(length) <= 64000:
+        if not length.isdigit() or not 1 <= int(length) <= (262144 if health_action else 64000):
             return self.reply(413, {"error": "The setup request is too large or incomplete."})
         self.connection.settimeout(10)
         try:
             body = json.loads(self.rfile.read(int(length)))
-            return self.reply(200, self.server.manager.configure(body))
-        except (json.JSONDecodeError, UnicodeError):
+            return self.reply(200, self.server.manager.health_action(health_action, body) if health_action else self.server.manager.configure(body))
+        except (json.JSONDecodeError, UnicodeError, RecursionError):
             return self.reply(400, {"error": "Check the setup form and try again."})
         except SetupError as error:
             return self.reply(400, {"error": str(error)})

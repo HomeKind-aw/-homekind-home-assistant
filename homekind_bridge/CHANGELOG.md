@@ -1,3 +1,10 @@
+## 0.11.0
+
+- Added HomeKind-owned local CSV and JSON health-report imports, with explicit column mapping, preview and confirmation before creating HA readings.
+- Kept only selected daily steps, sleep duration and resting heart rate; preserved file provenance and original dates.
+- Kept Garmin passwords out of the app. Automatic Garmin sync is unavailable until approved API access is configured.
+- Retained existing personal consent gates; expired local copies and handled source removal through Home Assistant outages.
+
 ## 0.10.1
 
 - Aqara/Zigbee2MQTT buttons connect to their existing Home Assistant action inputs without a forwarding automation.

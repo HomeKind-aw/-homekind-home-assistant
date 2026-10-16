@@ -39,4 +39,4 @@ byId('setup').addEventListener('submit',async event=>{
  try{await api('configure',{pairing_code:byId('pairing').value.trim(),entity_ids:[...state.selected],read_only:!byId('allow-controls').checked,live_camera_entity_ids:[...state.live]});byId('pairing').value='';await refreshStatus();}
  catch(failure){error(failure.message);}finally{button.disabled=false;}
 });
-(async()=>{try{state.csrf=(await api('setup')).csrf;await refreshStatus();await loadEntities(true);}catch(failure){error(failure.message);}setInterval(()=>{void refreshStatus();},4000);})();
+(async()=>{try{state.csrf=(await api('setup')).csrf;document.dispatchEvent(new Event('homekind-ready'));await refreshStatus();await loadEntities(true);}catch(failure){error(failure.message);}setInterval(()=>{void refreshStatus();},4000);})();

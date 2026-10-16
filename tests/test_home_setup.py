@@ -38,6 +38,7 @@ class HomeSetupTests(unittest.TestCase):
         self.thread.start()
 
     def tearDown(self):
+        self.manager.stopped.set()
         self.server.shutdown()
         self.server.server_close()
         self.thread.join()
@@ -214,6 +215,28 @@ class HomeSetupTests(unittest.TestCase):
                 manager.changed.set()
                 worker.join(3)
                 self.assertFalse(worker.is_alive())
+
+    def test_native_health_routes_require_ingress_csrf_and_preview_confirmation(self):
+        import datetime as dt
+        date=dt.datetime.now(dt.timezone.utc).date().isoformat()
+        payload={'format':'json','content':json.dumps([{'date':date,'steps':1234,'private':'EXCLUDED_HEALTH_SECRET'}]),'timezone':'UTC','source':'garmin_export','label':'Personal Garmin'}
+        headers={'Content-Type':'application/json','X-HomeKind-Setup':self.manager.csrf}
+        status,_,body=self.http('POST','/api/health/preview',payload,{'Content-Type':'application/json'})
+        self.assertEqual(status,403);self.assertFalse(self.manager.health.file.exists())
+        self.server.ingress_ip='172.30.32.2'
+        self.assertEqual(self.http('POST','/api/health/preview',payload,headers)[0],403)
+        self.server.ingress_ip='127.0.0.1'
+        status,response_headers,body=self.http('POST','/api/health/preview',payload,headers)
+        self.assertEqual(status,200);self.assertEqual(response_headers['Cache-Control'],'no-store');preview=json.loads(body)
+        self.assertNotIn(b'EXCLUDED_HEALTH_SECRET',body);self.assertFalse(self.manager.health.file.exists());self.assertFalse(self.requests)
+        self.assertEqual(self.http('POST','/api/health/commit',{'preview_id':preview['preview_id']},headers)[0],400)
+        published=[];self.manager.health.publish=lambda entity,value:published.append((entity,value))
+        self.assertEqual(self.http('POST','/api/health/commit',{'preview_id':preview['preview_id'],'publish_to_ha':True},headers)[0],200)
+        self.assertEqual(len(published),1);self.assertEqual(published[0][1]['state'],'1234')
+        self.assertNotIn('EXCLUDED_HEALTH_SECRET',self.manager.health.file.read_text())
+        status,_,body=self.http('GET','/api/health/status');self.assertEqual(status,200);self.assertNotIn(b'1234',body)
+        for path in ['/health-imports.json','/api/health/export','/api/health/login']:
+            self.assertEqual(self.http('GET',path)[0],404)
 
 
 if __name__ == "__main__":

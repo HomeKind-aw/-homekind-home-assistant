@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en-AU">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>HomeKind Home Connector</title><link rel="stylesheet" href="./setup.css"><script src="./setup.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>HomeKind Home Connector</title><link rel="stylesheet" href="./setup.css"><script src="./setup.js" defer></script><script src="./health.js" defer></script></head>
 <body><main>
   <header><img src="./logo.png" alt="HomeKind"><span class="tag">Home connection</span></header>
   <h1>Your home, connected.</h1><p class="intro">Choose home readings, camera status, doorbells and personal sensors for HomeKind.</p>
@@ -14,4 +14,30 @@
     <div id="error" role="alert" hidden></div><button id="save" class="primary" type="submit" disabled>Connect household</button>
     <p class="footnote">After connecting, return to HomeKind → Admin → Devices to add each selected sensor and assign its room. No Home Assistant password is entered into HomeKind.</p>
   </form>
+  <details class="card health-import"><summary>Import personal health readings</summary>
+    <p>HomeKind’s own local importer. Preview a CSV report or HomeKind JSON file and keep only selected daily readings. Garmin login and automatic sync are not available; they require approved Garmin API access.</p>
+    <form id="health-import-form">
+      <label for="health-profile">Personal source</label><select id="health-profile"><option value="">New personal source</option></select>
+      <label for="health-label">Whose source is this?</label><input id="health-label" type="text" maxlength="40" placeholder="For example: Alun Garmin" required>
+      <label for="health-source">Report source</label><select id="health-source"><option value="garmin_export">Garmin Connect export</option><option value="health_file">Other health report</option></select>
+      <label for="health-timezone">Time zone for these dates</label><input id="health-timezone" type="text" maxlength="80" value="Australia/Melbourne" required>
+      <label for="health-file">Report file · CSV or HomeKind JSON, up to 128 KB</label><input id="health-file" type="file" accept=".csv,.json">
+      <p class="hint">For Garmin, export a daily report from Garmin Connect → Reports. Select its date and reading columns below. Activity lists, ZIP and FIT files are not supported. JSON uses date, steps, sleep_minutes and resting_heart_rate.</p>
+      <button type="button" id="health-template" class="small">Download a blank CSV template</button>
+      <div id="health-columns" hidden>
+        <label for="health-col-date">Date column</label><select id="health-col-date"></select>
+        <label for="health-date-format">Date format</label><select id="health-date-format"><option value="iso">2026-10-17 · year-month-day</option><option value="dmy">17/10/2026 · day/month/year</option><option value="mdy">10/17/2026 · month/day/year</option></select>
+        <label for="health-col-steps">Steps column</label><select id="health-col-steps"></select>
+        <label for="health-col-sleep">Sleep duration column</label><select id="health-col-sleep"></select>
+        <label for="health-sleep-unit">Sleep unit in this report</label><select id="health-sleep-unit"><option value="minutes">Minutes or hours:minutes</option><option value="hours">Hours</option><option value="seconds">Seconds</option></select>
+        <label for="health-col-resting_hr">Resting heart rate column</label><select id="health-col-resting_hr"></select>
+      </div>
+      <button type="submit" class="small" id="health-preview-button" disabled>Preview selected readings</button>
+    </form>
+    <div id="health-preview" aria-live="polite"></div>
+    <label class="control-choice" id="health-confirm-wrap" hidden><input id="health-confirm" type="checkbox"><span>I confirm the person and dates. Store these selected readings in this Home Assistant home, where authorised HA users and its history recorder may access them.</span></label>
+    <button type="button" class="primary" id="health-save" hidden>Save selected readings to Home Assistant</button>
+    <p id="health-message" role="status">Loading local health import…</p><div id="health-saved"></div>
+    <p class="hint">The raw report is not saved or uploaded. This importer keeps only each metric’s latest reading for seven calendar days. Removing a source clears its current values; Home Assistant manages its own recorded history and backups. In HomeKind, select these sensors, add them under Devices and connect them to yourself in My sharing before any values are collected there.</p>
+  </details>
 </main></body></html>

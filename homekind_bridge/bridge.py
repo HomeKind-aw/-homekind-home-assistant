@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.10.1"
+VERSION = "0.11.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -161,6 +161,18 @@ def observation(state):
     if state["entity_id"].startswith("event."):
         result["unit"] = ""
         result["event_type"] = (button_action(attrs.get("event_type")) or "") if reading_class(state) == "button" else "ring" if attrs.get("event_type") in RING_TYPES else ""
+    if result["device_class"].startswith("health_") and attrs.get("homekind_health_source") in ("garmin_export", "health_file"):
+        day = attrs.get("homekind_health_date")
+        try:
+            if not isinstance(day, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+                raise ValueError()
+            dt.date.fromisoformat(day)
+            zone = attrs.get("homekind_health_timezone")
+            if not isinstance(zone, str) or not re.fullmatch(r"[A-Za-z0-9_+.-]+(?:/[A-Za-z0-9_+.-]+){0,2}", zone) or len(zone) > 80:
+                raise ValueError()
+            result.update(import_method="file", source=attrs["homekind_health_source"], source_date=day, source_timezone=zone)
+        except ValueError:
+            result["state"] = "unavailable"
     return result
 
 def catalog_entry(state):

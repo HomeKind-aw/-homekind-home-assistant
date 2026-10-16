@@ -133,3 +133,22 @@ Native Home Assistant button event entities are also supported; choose that exis
 The connector uses the existing local Home Assistant account and permissions. If HA refuses the MQTT subscription, the Web UI reports that the button input is not connected; ordinary sensors keep working. No permission is widened automatically. This records button activity only; family notifications or other routines must be configured separately.
 
 Vacuum status is read-only. Select the actual `vacuum` entry to share Cleaning, Docked, Returning or Paused. Battery and dock settings do not establish cleaning activity.
+
+
+## HomeKind-owned health import — 0.11.0
+
+Open this app's Web UI → **Import personal health readings**. This first version is a manual report importer, not automatic Garmin synchronisation. It contains no HACS integration, Garmin login implementation or additional third-party Python dependency. Building our own app does not make Garmin's private login endpoints an approved or stable integration; supported automatic Garmin access still needs OAuth credentials, the approved API documentation and Garmin approval/licensing where applicable.
+
+For Garmin, export a daily report from the Garmin Connect website → Reports → choose the metric/time range → Export. This importer supports a single CSV header row with full dates (`YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY`). Map the date column and only the metrics you want. Reports using other layouts/date formats must be converted into the blank template first. The template has `date,steps,sleep_minutes,resting_heart_rate`. HomeKind JSON accepts an array with these same keys, or an object with a `readings` array. Garmin activity lists, ZIP archives, FIT binary files and raw whole-account JSON exports are not supported in this version. Real account-specific export layouts still need a pilot test.
+
+1. Create a source label for one person, choose the provider and the time zone of the report's daily dates. Keep separate sources for different people.
+2. Select a CSV or HomeKind JSON file up to 128 KB. Map the CSV columns, date format and sleep unit. Empty metric selections are excluded.
+3. Preview the latest selected reading for each metric, including its source date. Conflicting same-day values, future dates, invalid numeric values and unsupported files are rejected. Older rows are excluded; only the last seven calendar days are eligible.
+4. Confirm that the selected values can be stored in this Home Assistant home. They become HomeKind-owned `sensor.homekind_health_...` current states. No device control service is called. HA may record these states and include them in its own backups according to its settings; administrators must manage that retention in HA.
+5. Reload the sensor list above, select the new personal sensors, and save. In HomeKind, add the found health sensors in Devices, allocate them to On person, then connect each one to yourself in My sharing → Health readings. Existing collection and recipient choices continue to apply. Creating an HA reading does not opt anybody into HomeKind collection.
+
+Raw reports are processed in memory only and are not saved or sent to HomeKind. Preview data expires after ten minutes. This importer saves only each metric's latest date/value in the app's private data directory (directory 0700, file 0600); it retains no Garmin password or token. Up to five named local sources are supported. The local file store expires readings after seven calendar days. Clearing a source replaces its current HA values with unavailable, with a persistent cleanup queue if HA is offline. This does not purge HA recorder history or backups.
+
+The imported readings are republished to HA every minute so they survive an HA restart. Their original source date never changes. The personal HomeKind display explicitly identifies the file source and its original date; a fresh HA report timestamp is not a new physical measurement. HomeKind separately enforces expiry using that source date, and collection pauses/removal retain the protected personal workspace's existing access rules. File imports are excluded from household summaries, alerts and general home activity. No live Garmin connection or real-device test is implied by passing software tests.
+
+References: https://support.garmin.com/en-IN/?faq=W1TvTPW8JZ6LfJSfK512Q8 and https://developer.garmin.com/gc-developer-program/health-api/
