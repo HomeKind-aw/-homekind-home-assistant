@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 16 October 2026
+
+- Discover camera status, event and binary doorbells, and supported numeric health sensors.
+- Strip camera/video access tokens and URLs; live video stays in Home Assistant.
+- Report real doorbell rings without replaying old timestamps or repeated heartbeats.
+- Upload personal health values only for an explicitly connected, consenting person.
+- Keep personal health separate from household devices, history and summaries, with category sharing and seven-day latest-reading expiry.
+- Retain existing media readings, light controls, pairing, selections and fast updates.
+
 ## 0.6.0 — 16 October 2026
 
 - Include media players in discovery and selected readings: TVs, speakers, receivers and projectors.
