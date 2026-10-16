@@ -20,11 +20,11 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
-ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player)\.[a-z0-9_]{1,150}$")
+ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event)\.[a-z0-9_]{1,150}$")
 SENSOR_CLASSES = {"temperature", "humidity", "illuminance", "battery", "power", "energy", "voltage", "current", "signal_strength", "carbon_dioxide", "pm25", "pm10", "water"}
 BINARY_CLASSES = {"motion", "occupancy", "opening", "door", "window", "moisture", "vibration", "connectivity", "battery", "problem"}
 
@@ -57,34 +57,81 @@ def request_json(url, token, data=None, timeout=12):
     except (json.JSONDecodeError, UnicodeError):
         raise BridgeError("Response could not be read.") from None
 
+HEALTH_UNITS = {
+    "health_steps": {"steps", "step", ""}, "health_sleep": {"min", "minutes", "h", "hours", "s"},
+    "health_resting_hr": {"bpm", "beats/min"}, "health_heart_rate": {"bpm", "beats/min"},
+    "health_oxygen": {"%"}, "health_weight": {"kg", "g", "lb", "lbs"},
+    "health_body_temperature": {"°C", "°F", "C", "F"},
+    "health_systolic": {"mmHg"}, "health_diastolic": {"mmHg"},
+    "health_glucose": {"mg/dL", "mmol/L"},
+}
+RING_TYPES = {"ring", "pressed", "single_press"}
+
+def reading_class(state):
+    """Recognise personal readings explicitly; ordinary room readings stay ordinary."""
+    attrs = state.get("attributes", {})
+    klass = str(attrs.get("device_class", ""))
+    entity = str(state.get("entity_id", ""))
+    words = re.sub(r"[_.-]+", " ", entity + " " + str(attrs.get("friendly_name", ""))).lower()
+    unit = str(attrs.get("unit_of_measurement", ""))
+    if entity.startswith(("binary_sensor.", "event.")) and (klass == "doorbell" or re.search(r"\bdoor ?bell\b", words)):
+        return "doorbell"
+    if not entity.startswith("sensor."):
+        return klass
+    if klass in HEALTH_UNITS:
+        return klass if unit in HEALTH_UNITS[klass] else "unsupported_health"
+    metric = {"heart_rate":"health_heart_rate", "resting_heart_rate":"health_resting_hr", "steps":"health_steps", "sleep_duration":"health_sleep", "blood_oxygen":"health_oxygen", "blood_glucose_concentration":"health_glucose"}.get(klass)
+    if metric:
+        return metric if unit in HEALTH_UNITS[metric] else "unsupported_health"
+    metric = None
+    if re.search(r"\b(resting heart rate|resting hr|resting pulse)\b", words): metric = "health_resting_hr"
+    elif re.search(r"\b(heart rate|pulse rate)\b", words): metric = "health_heart_rate"
+    elif re.search(r"\b(steps|step count)\b", words): metric = "health_steps"
+    elif re.search(r"\b(sleep duration|sleep time|time asleep|total sleep|sleep)\b", words): metric = "health_sleep"
+    elif re.search(r"\b(spo2|blood oxygen|oxygen saturation)\b", words): metric = "health_oxygen"
+    elif re.search(r"\b(systolic)\b", words): metric = "health_systolic"
+    elif re.search(r"\b(diastolic)\b", words): metric = "health_diastolic"
+    elif klass == "blood_glucose_concentration" or re.search(r"\b(blood glucose|blood sugar|glucose)\b", words): metric = "health_glucose"
+    elif re.search(r"\b(body temperature|skin temperature)\b", words): metric = "health_body_temperature"
+    elif re.search(r"\b(body weight|weight)\b", words) and unit in HEALTH_UNITS["health_weight"]: metric = "health_weight"
+    return (metric if unit in HEALTH_UNITS[metric] else "unsupported_health") if metric else klass
+
 def safe_entity(state):
     entity = state.get("entity_id", "")
-    if not isinstance(entity, str) or not ENTITY.fullmatch(entity):
+    if not isinstance(entity, str) or not ENTITY.fullmatch(entity) or not isinstance(state.get("attributes", {}), dict):
         return False
     domain = entity.split(".")[0]
-    attrs = state.get("attributes", {})
-    if not isinstance(attrs, dict):
-        return False
-    klass = attrs.get("device_class", "")
-    return domain in ("light", "switch", "media_player") or (domain == "sensor" and klass in SENSOR_CLASSES) or (domain == "binary_sensor" and klass in BINARY_CLASSES)
+    klass = reading_class(state)
+    return domain in ("light", "switch", "media_player", "camera") or (domain == "event" and klass == "doorbell") or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS)) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
 
 def observation(state):
     attrs = state.get("attributes", {})
-    return {"entity_id": state["entity_id"], "state": str(state.get("state", "unknown"))[:100], "unit": str(attrs.get("unit_of_measurement", ""))[:20], "device_class": str(attrs.get("device_class", ""))[:40], "assumed_state": attrs.get("assumed_state") is True, "last_updated": state.get("last_updated"), "last_changed": state.get("last_changed")}
+    result = {"entity_id": state["entity_id"], "state": str(state.get("state", "unknown"))[:100], "unit": str(attrs.get("unit_of_measurement", ""))[:20], "device_class": reading_class(state)[:40], "assumed_state": attrs.get("assumed_state") is True, "last_updated": state.get("last_updated"), "last_changed": state.get("last_changed")}
+    if state["entity_id"].startswith("camera."):
+        result.update(unit="", device_class="")
+    if state["entity_id"].startswith("event."):
+        result["unit"] = ""
+        result["event_type"] = "ring" if attrs.get("event_type") in RING_TYPES else ""
+    return result
 
 def catalog_entry(state):
     attrs = state.get("attributes", {})
-    return {"entity_id": state["entity_id"], "name": str(attrs.get("friendly_name") or state["entity_id"])[:80], "device_class": str(attrs.get("device_class", ""))[:40], "unit": str(attrs.get("unit_of_measurement", ""))[:20]}
+    return {"entity_id": state["entity_id"], "name": str(attrs.get("friendly_name") or state["entity_id"])[:80], "device_class": "" if state["entity_id"].startswith("camera.") else reading_class(state)[:40], "unit": "" if state["entity_id"].startswith(("camera.", "event.")) else str(attrs.get("unit_of_measurement", ""))[:20]}
 
 def safe_reading(state):
     value = state.get("state", "")
     if not isinstance(value, str) or len(value) > 100:
         return False
+    if state["entity_id"].startswith("camera."):
+        return value in ("idle", "streaming", "recording", "on", "off", "unknown", "unavailable")
+    if state["entity_id"].startswith("event."):
+        return value in ("unknown", "unavailable") or utc_timestamp(value) > 0
     if state["entity_id"].startswith("media_player."):
         return value in ("playing", "paused", "idle", "buffering", "on", "off", "standby", "unknown", "unavailable")
     if state["entity_id"].startswith("sensor."):
         return value in ("unknown", "unavailable") or bool(re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", value)) and math.isfinite(float(value))
     return value in ("on", "off", "unknown", "unavailable")
+
 
 def utc_timestamp(value):
     try:
@@ -177,13 +224,19 @@ class Connector:
                 raise BridgeError("Invalid Home Assistant entity list.")
             eligible = [s for s in states if isinstance(s, dict) and safe_entity(s) and s["entity_id"] in self.allowlist]
             catalog = [catalog_entry(s) for s in eligible][:1000]
-            selected = {d["entity_id"] for d in self.tracked}
-            readings = [observation(s) for s in eligible if s["entity_id"] in selected and safe_reading(s)][:250]
+            selected = {d["entity_id"] for d in self.tracked if self.collectable(d)}
+            readings = [observation(s) for s in eligible if s["entity_id"] in selected and safe_reading(s) and (not reading_class(s).startswith("health_") or any(d["entity_id"] == s["entity_id"] and d.get("collect_health") is True for d in self.tracked))][:250]
         except BridgeError:
             self.cloud("sync", {"ha_connected": False, "catalog": [], "states": [], "version": VERSION})
             raise
         result = self.cloud("sync", {"ha_connected": True, "catalog": catalog, "states": readings, "version": VERSION})
         self.tracked = result["tracked"]
+
+    def collectable(self, device):
+        # Personal values leave HA only after a person explicitly connects the source.
+        state = self.current.get(device["entity_id"])
+        health = device.get("kind") == "health" or state and reading_class(state).startswith("health_") or str(self.pending.get(device["entity_id"], {}).get("device_class", "")).startswith("health_")
+        return not health or device.get("collect_health") is True
 
     def stopping(self):
         return self.halt.is_set() or self.external_stop.is_set()
@@ -274,7 +327,7 @@ class Connector:
             if previous and utc_timestamp(previous.get("last_updated")) > utc_timestamp(state.get("last_updated")):
                 return
             self.current[entity] = {**state, "attributes": dict(state["attributes"])}
-            if entity not in {d["entity_id"] for d in self.tracked}:
+            if entity not in {d["entity_id"] for d in self.tracked if self.collectable(d)}:
                 return
             if entity not in self.pending and len(self.pending) >= MAX_PENDING:
                 self.dropped += 1
@@ -286,7 +339,7 @@ class Connector:
 
     def stream_sync(self):
         with self.lock:
-            tracked = {d["entity_id"] for d in self.tracked} & self.allowlist
+            tracked = {d["entity_id"] for d in self.tracked if self.collectable(d)} & self.allowlist
             self.pending = {k:v for k,v in self.pending.items() if k in tracked and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
             if self.stream_connected:
                 # Heartbeats re-observe the current cache only while the socket is healthy.
