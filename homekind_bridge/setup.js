@@ -7,7 +7,7 @@ async function api(path,body){
 }
 function error(message=''){byId('error').textContent=message;byId('error').hidden=!message;}
 function count(){byId('selected-count').textContent=state.selected.size+' selected';}
-function recommended(entity){if(entity.entity_id.startsWith('media_player.'))return true;const k=entity.device_class||'',name=(entity.name+' '+entity.entity_id).replace(/[_.-]+/g,' ');return !/\b(crossfade|loudness|autoplay|surround|child lock|do not disturb|auto off enabled|auto update|indicator|led|adaptive|sensitivity|selfidentification|interference|calibration|night sound|speech enhancement)\b/i.test(name)&&!['voltage','current','signal_strength','connectivity','problem'].includes(k);}
+function recommended(entity){if(/^(media_player|camera|event)\./.test(entity.entity_id))return true;const k=entity.device_class||'',name=(entity.name+' '+entity.entity_id).replace(/[_.-]+/g,' ');return !/\b(crossfade|loudness|autoplay|surround|child lock|do not disturb|auto off enabled|auto update|indicator|led|adaptive|sensitivity|selfidentification|interference|calibration|night sound|speech enhancement)\b/i.test(name)&&!['voltage','current','signal_strength','connectivity','problem'].includes(k);}
 function visibleEntities(){const search=byId('search').value.trim().toLocaleLowerCase();return state.entities.filter(entity=>(byId('show-other').checked||recommended(entity)||state.selected.has(entity.entity_id))&&(entity.name+' '+entity.entity_id).toLocaleLowerCase().includes(search));}
 function renderEntities(){
  const search=byId('search').value.trim().toLocaleLowerCase(),matched=visibleEntities();
@@ -15,7 +15,7 @@ function renderEntities(){
  for(const entity of matched.slice(0,200)){
   const label=document.createElement('label');label.className='entity';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=entity.entity_id;checkbox.checked=state.selected.has(entity.entity_id);
   checkbox.addEventListener('change',()=>{if(checkbox.checked){if(state.selected.size>=250){checkbox.checked=false;error('Choose up to 250 sensors.');return;}state.selected.add(entity.entity_id);}else state.selected.delete(entity.entity_id);count();});
-  const text=document.createElement('span'),name=document.createElement('b'),id=document.createElement('small');name.textContent=entity.name;id.textContent=entity.entity_id;text.append(name,id);label.append(checkbox,text);fragment.append(label);
+  const text=document.createElement('span'),name=document.createElement('b'),id=document.createElement('small');name.textContent=entity.name;id.textContent=entity.entity_id+(entity.device_class?.startsWith('health_')?' · Personal: connect to yourself in My sharing':entity.entity_id.startsWith('camera.')?' · Status only; video stays in Home Assistant':'');text.append(name,id);label.append(checkbox,text);fragment.append(label);
  }
  if(!matched.length){const p=document.createElement('p');p.textContent=search?'No matching sensors. Try another name.':'Supported sensors will appear once they are available in Home Assistant.';fragment.append(p);}
  byId('entities').replaceChildren(fragment);byId('list-note').textContent=matched.length>200?'Showing the first 200 matches. Search to find another sensor.':'';count();
