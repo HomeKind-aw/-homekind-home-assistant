@@ -47,8 +47,8 @@ class ConnectorTests(unittest.TestCase):
     def test_unobserved_state_change_is_unconfirmed(self):
         self.assertEqual(self.run_command(change=False)[-1][1]["status"],"unconfirmed")
 
-    def test_catalog_excludes_cameras_people_and_personal_health(self):
-        fixtures=[{"entity_id":"camera.room","attributes":{}},{"entity_id":"person.parent","attributes":{}},{"entity_id":"sensor.heart","attributes":{"device_class":"heart_rate"}},{"entity_id":"sensor.generic_text","attributes":{}}]
+    def test_catalog_excludes_people_and_unclassified_personal_text(self):
+        fixtures=[{"entity_id":"person.parent","attributes":{}},{"entity_id":"sensor.heart","attributes":{"device_class":"heart_rate"}},{"entity_id":"sensor.generic_text","attributes":{}}]
         self.assertFalse(any(bridge.safe_entity(x) for x in fixtures))
         self.assertTrue(bridge.safe_entity({"entity_id":"sensor.temperature","attributes":{"device_class":"temperature"}}))
 
@@ -179,3 +179,68 @@ class ConnectorTests(unittest.TestCase):
         self.assertEqual(calls,[])
 
 if __name__ == "__main__": unittest.main()
+
+
+class ExtendedReadingTests(unittest.TestCase):
+    def source(self, entity, value="72", unit="bpm", klass="", name="Heart rate"):
+        return {"entity_id":entity,"state":value,"attributes":{"device_class":klass,"friendly_name":name,"unit_of_measurement":unit},"last_updated":"2026-10-16T00:00:00Z","last_changed":"2026-10-16T00:00:00Z"}
+
+    def test_camera_states_never_send_image_tokens_or_stream_urls(self):
+        s=self.source("camera.front", "recording", "", "", "Front camera")
+        s["attributes"].update(access_token="private-token",entity_picture="/api/private",stream_source="rtsp://private",brand="private")
+        self.assertTrue(bridge.safe_entity(s));self.assertTrue(bridge.safe_reading(s))
+        wire=bridge.observation(s);catalog=bridge.catalog_entry(s)
+        self.assertEqual(wire["state"],"recording")
+        self.assertFalse(any(k in str(wire)+str(catalog) for k in ["private-token","rtsp://","/api/private"]))
+        for value in ["idle","streaming","recording","on","off","unknown","unavailable"]:
+            self.assertTrue(bridge.safe_reading({**s,"state":value}))
+        self.assertFalse(bridge.safe_reading({**s,"state":"private image"}))
+
+    def test_doorbell_event_keeps_timestamp_and_only_ring_type(self):
+        s=self.source("event.front_doorbell", "2026-10-16T00:00:00Z", "", "doorbell", "Front doorbell")
+        s["attributes"].update(event_type="ring",video_url="https://private")
+        self.assertTrue(bridge.safe_entity(s));self.assertTrue(bridge.safe_reading(s))
+        self.assertEqual(bridge.observation(s)["event_type"],"ring")
+        self.assertNotIn("video_url",bridge.observation(s))
+        s["attributes"]["event_type"]="motion"
+        self.assertEqual(bridge.observation(s)["event_type"],"")
+        self.assertFalse(bridge.safe_entity(self.source("event.remote", "2026-10-16T00:00:00Z", "", "button", "Remote")))
+        self.assertTrue(bridge.safe_entity(self.source("binary_sensor.front_doorbell", "on", "", "", "Front doorbell")))
+        self.assertFalse(bridge.safe_reading({**s,"state":"not-a-time"}))
+
+    def test_health_classification_requires_matching_metric_and_units(self):
+        fixtures=[("Steps","steps","","health_steps"),("Sleep duration","h","duration","health_sleep"),("Resting heart rate","bpm","","health_resting_hr"),("Heart rate","bpm","","health_heart_rate"),("SpO2","%","","health_oxygen"),("Body weight","kg","weight","health_weight"),("Body temperature","°C","temperature","health_body_temperature"),("Systolic pressure","mmHg","","health_systolic"),("Diastolic pressure","mmHg","","health_diastolic"),("Glucose","mmol/L","blood_glucose_concentration","health_glucose")]
+        for name,unit,klass,expected in fixtures:
+            s=self.source("sensor.personal_metric",unit=unit,klass=klass,name=name)
+            self.assertTrue(bridge.safe_entity(s),name);self.assertEqual(bridge.observation(s)["device_class"],expected)
+        self.assertEqual(bridge.reading_class(self.source("sensor.lounge","21","°C","temperature","Lounge temperature")),"temperature")
+        self.assertFalse(bridge.safe_entity(self.source("sensor.heart_rate","private text","","","Heart rate")))
+        self.assertFalse(bridge.safe_entity(self.source("sensor.personal_notes","private text","","","Personal notes")))
+
+    def test_health_outbox_requires_current_personal_collection_flag(self):
+        sent=[]
+        def request(url,token,data=None):
+            sent.append(data);return {"tracked":[{"entity_id":"sensor.heart_rate","kind":"health","collect_health":False}]}
+        with tempfile.TemporaryDirectory() as directory:
+            c=bridge.Connector({"entity_ids":["sensor.heart_rate"]},directory,request=request,clock=lambda:1792108800)
+            c.credentials["bridge_id"]="fixture";c.stream_connected=True
+            s=self.source("sensor.heart_rate")
+            c.tracked=[{"entity_id":"sensor.heart_rate","kind":"health","collect_health":False}]
+            c.accept_state(s);self.assertFalse(c.pending);c.stream_sync();self.assertEqual(sent[-1]["states"],[])
+            self.assertEqual(sent[-1]["catalog"][0]["device_class"],"health_heart_rate")
+            c.tracked=[{"entity_id":"sensor.heart_rate","kind":"health","collect_health":True}]
+            c.accept_state(s);self.assertIn("sensor.heart_rate",c.pending)
+            # Pausing collection drops both durable pending values and cache heartbeats.
+            c.tracked=[{"entity_id":"sensor.heart_rate","kind":"health","collect_health":False}]
+            c.stream_sync();self.assertEqual(sent[-1]["states"],[]);self.assertFalse(c.pending)
+
+    def test_extended_sources_can_never_be_sent_as_on_off_controls(self):
+        calls=[]
+        with tempfile.TemporaryDirectory() as directory:
+            c=bridge.Connector({"entity_ids":["camera.front","event.doorbell","sensor.heart_rate"],"read_only":False},directory,request=lambda *args:calls.append(args))
+            for entity in c.allowlist:c.execute({"entity_id":entity})
+        self.assertEqual(calls,[])
+
+
+if __name__ == "__main__":
+    unittest.main()
