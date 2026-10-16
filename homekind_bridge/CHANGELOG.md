@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 — 16 October 2026
+
+- Include media players in discovery and selected readings: TVs, speakers, receivers and projectors.
+- Share standard playback states for simple HomeKind room readings and activity summaries.
+- Keep titles, artists, artwork and media URLs out of shared readings.
+- Playback remains read-only and does not add a notification for every state change.
+- Retain pairing, sensor selections, existing light controls and fast live updates.
+
 ## 0.5.0 — 16 October 2026
 
 - Handle light commands independently from sensor uploads; up to three leased commands run together.
