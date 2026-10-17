@@ -39,7 +39,7 @@ For an optional computer-based local install, copy `homekind_bridge` into Home A
 
 ## Update an existing installation
 
-From 0.14.0, the installer can enable **Manage feature choices in HomeKind** once in Web UI and save the existing sensor selection. After that, use **HomeKind → Settings → Devices → Connection settings → Connection choices** to manage light/plug requests, media controls and live-camera availability for the selected devices. Camera viewers and each person's health consent keep their separate choices. Existing installations retain their current settings and local management until explicitly enrolled. No new pairing code is needed for this upgrade. Automatic app updates are configured once during installation; this release does not silently enable them or provide fleet rollback.
+From 0.14.0, the installer can enable **Manage feature choices in HomeKind** once in Web UI and save the existing sensor selection. After that, use **HomeKind → Settings → Devices → Connection settings → Connection choices** to manage light/plug requests, media controls and live-camera availability for the selected devices. Camera viewers and each person's health consent keep their separate choices. Existing installations retain their current settings and local management until explicitly enrolled. No new pairing code is needed for this upgrade. Managed software updates use the separately installed HomeKind Maintenance Companion 0.1.0. See its README for one-time commissioning, pilot gates and restricted connector backup recovery. The ordinary connector does not gain Supervisor manager access.
 
 The `homekind_bridge` app slug and `/data/homekind` credentials directory are unchanged. A local installation and a repository installation have different Home Assistant repository identifiers, so use **Stop connection** in HomeKind before moving between them and pair the replacement once. An update within the same app installation preserves its credentials. Do not run two connectors for the same household.
 
@@ -117,3 +117,13 @@ The panel shows current track/artist, play or pause and volume where the player 
 Only the latest selected now-playing details are shared with permitted room readers. Titles are not added to household activity or summaries. Media addresses, artwork and account credentials remain local. Removing the local selection clears the shared details; offline metadata expires after one hour. Commands use a separate expiring queue, fresh session/room checks and one-time authorisation. A timeout is not retried as a physical action. Existing sensors, light/plug controls and camera selections are preserved.
 
 Software verification is complete; actual Sonos/Cast playback and mobile interaction must be commissioned in the home. Physical button mappings, spoken reminders and media routines are separate work.
+
+## Managed maintenance (companion 0.1.0)
+
+HomeKind Settings → Home connection health and updates reports current versions,
+waiting readings, batteries and physical tests. The separate maintenance companion
+supports pilot/stable rollout and explicit encrypted connector-backup recovery.
+Install and commission it once with the resident; normal connector feature choices
+stay in HomeKind. Its manager permission is isolated from the ordinary connector.
+Actual Green update/restore tests are required before stable rollout. See
+[Maintenance Companion](homekind_maintenance/README.md).

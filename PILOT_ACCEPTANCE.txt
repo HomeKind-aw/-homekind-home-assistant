@@ -78,3 +78,27 @@ Status-only lock / valve / alarm / mower families: ______
 Routine condition fields / action preview / current room access / pause: ______
 Lost response never retries automatically / physical result checked: ______
 iPhone / iPad / outside-home / startup and reconnect: ______
+
+MANAGED MAINTENANCE — companion 0.1.0 (physical checks not completed)
+Install same repository companion / manager permission agreed: ______
+Ten-minute code / local allow_updates / Start on boot: ______
+Connector automatic updates disabled for staged policy: ______
+Encrypted connector-only backup / null local location alias: ______
+Actual Green update / companion survives / fresh cloud readings: ______
+Thirty-minute pilot observation / interruptions reset the period: ______
+Physical backup restore / original pairing / devices / local opt-out: ______
+Restored managed settings revise successfully / pending requests cancelled: ______
+Lost POST response / reboot journal / no automatic repeat: ______
+Sequential homes / five-minute hold / pause / permission expiry: ______
+iPhone / iPad health and update screens: ______
+
+RESIDENT ROUTINE CHECK-INS (physical checks not completed)
+Resident reviews actual source, contacts and accepts own settings: ______
+Five covered mornings within seven days / brief PIR pulse captured: ______
+Presence duration / source gaps / unknown or assumed state pause: ______
+Commissioning excludes test activity / expired tests resume: ______
+Resident-first view / quiet hours / own I am okay response: ______
+Explicit family request / timeout / current recipient permission: ______
+No eligible contact shows blocked follow-up / no claimed delivery: ______
+Pause / 24-hour pause / source or epoch change requires review: ______
+Real phone notification receipt and response, tablet dashboard: ______

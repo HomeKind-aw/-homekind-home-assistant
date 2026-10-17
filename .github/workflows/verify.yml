@@ -3,7 +3,7 @@ name: Verify HomeKind connector
 on:
   push:
     branches: [main]
-    paths: ['homekind_bridge/**', 'tests/**', '.github/workflows/verify.yml']
+    paths: ['homekind_maintenance/**', 'homekind_bridge/**', 'tests/**', '.github/workflows/verify.yml']
   pull_request:
   workflow_dispatch:
 
@@ -71,3 +71,34 @@ jobs:
             sleep 1
           done
           exit 1
+
+  maintenance:
+    name: Maintenance companion (${{ matrix.arch }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            platform: linux/arm64
+          - arch: amd64
+            platform: linux/amd64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Enable Arm emulation
+        if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Build and check the companion
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          docker buildx build --platform "$TARGET_PLATFORM" --load --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.1.0 --tag homekind-maintenance:verify ./homekind_maintenance
+          docker run --rm --platform "$TARGET_PLATFORM" --entrypoint python3 homekind-maintenance:verify -m py_compile /maintenance.py
+          docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_home_maintenance.py' -v

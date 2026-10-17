@@ -1,0 +1,17 @@
+name: HomeKind Maintenance Companion
+description: Installer-enabled, restricted updates and backup recovery for the HomeKind connector.
+version: "0.1.0"
+slug: homekind_maintenance
+init: false
+startup: application
+boot: auto
+arch: [aarch64, amd64]
+hassio_api: true
+hassio_role: manager
+stage: experimental
+options:
+  pairing_code: ""
+  allow_updates: false
+schema:
+  pairing_code: password
+  allow_updates: bool
