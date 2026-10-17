@@ -44,6 +44,8 @@ class MediaControls(threading.Thread):
         self.browsed_at = {}
         self.next_sync = 0
         self.last_payload = None
+        self.wake = threading.Event()
+        self.sync_lock = threading.Lock()
         self.radio = RadioDirectory(connector, self.selected)
 
     def browse(self, entity, state):
@@ -84,6 +86,10 @@ class MediaControls(threading.Thread):
         self.browsed_at[entity] = time.monotonic()
 
     def sync(self, force=False):
+        with self.sync_lock:
+            self._sync(force)
+
+    def _sync(self, force=False):
         c = self.connector
         with c.lock:
             states = {key: dict(value) for key, value in c.current.items() if key in self.selected and key in c.allowlist}
@@ -91,10 +97,10 @@ class MediaControls(threading.Thread):
         rows = []
         if connected:
             for entity, state in states.items():
-                if time.monotonic() - self.browsed_at.get(entity, -1000) > 180:
-                    self.browse(entity, state)
                 rows.append(playback(state, self.choices.get(entity, {})))
         payload = {"players": rows, "radio": self.radio.catalogue() if connected else {"status": "unavailable", "country": "AU", "stations": []}}
+        if c.stopping():
+            return
         if force or payload != self.last_payload or time.monotonic() >= self.next_sync:
             c.cloud("media-sync", payload)
             self.last_payload = payload
@@ -145,27 +151,82 @@ class MediaControls(threading.Thread):
                 # A timeout can follow an accepted command. It must never be replayed.
                 status = "unknown"
         c.cloud("media-ack", {**token, "status": status})
-        self.sync(force=True)
+        self.wake.set()
 
-    def run(self):
+    def publish_loop(self):
         c = self.connector
-        if self.selected:
-            self.radio.start()
-        delay = .75
+        delay = .5
         while not c.stopping():
             if not c.ready.wait(.2):
                 continue
+            self.wake.clear()
             try:
                 self.sync()
-                if not self.selected:
-                    return
-                claims = c.cloud("media-poll").get("commands", [])
-                for claim in claims[:3]:
-                    if c.stopping():
-                        return
-                    self.execute(claim)
-                delay = .75
+                delay = .5
             except Exception:
-                logging.warning("Media controls are waiting for a connection; home readings continue.")
+                logging.warning("Media readings are waiting for a connection; home readings continue.")
                 delay = min(max(delay * 2, 2), 30)
-            c.halt.wait(delay)
+            # HA changes wake this lane; neither commands nor favourite browsing block it.
+            if delay == .5:
+                # Bound bursts while retaining an event wake after each upload.
+                c.halt.wait(.25)
+                self.wake.wait(delay)
+            else:
+                c.halt.wait(delay)
+
+    def browse_loop(self):
+        c = self.connector
+        while not c.stopping():
+            if not c.ready.wait(.2):
+                continue
+            with c.lock:
+                states = {key: dict(value) for key, value in c.current.items()
+                          if key in self.selected and key in c.allowlist and c.stream_connected}
+            for entity, state in states.items():
+                if c.stopping():
+                    return
+                if time.monotonic() - self.browsed_at.get(entity, -1000) > 180:
+                    try:
+                        self.browse(entity, state)
+                        self.wake.set()
+                    except Exception:
+                        # Optional discovery cannot take down the playback publisher.
+                        self.browsed_at[entity] = time.monotonic() - 170
+            c.halt.wait(1)
+
+    def run(self):
+        c = self.connector
+        if not self.selected:
+            while not c.stopping():
+                if c.ready.wait(.2):
+                    try:
+                        self.sync(force=True)
+                    except Exception:
+                        pass
+                    return
+            return
+        self.radio.start()
+        publisher = threading.Thread(target=self.publish_loop, name="homekind-media-readings", daemon=True)
+        browser = threading.Thread(target=self.browse_loop, name="homekind-media-favourites", daemon=True)
+        publisher.start()
+        browser.start()
+        delay = .5
+        try:
+            while not c.stopping():
+                if not c.ready.wait(.2):
+                    continue
+                try:
+                    claims = c.cloud("media-poll").get("commands", [])
+                    for claim in claims[:3]:
+                        if c.stopping():
+                            return
+                        self.execute(claim)
+                    delay = .5
+                except Exception:
+                    logging.warning("Media controls are waiting for a connection; home readings continue.")
+                    delay = min(max(delay * 2, 2), 30)
+                c.halt.wait(delay)
+        finally:
+            self.wake.set()
+            publisher.join(timeout=2)
+            browser.join(timeout=2)

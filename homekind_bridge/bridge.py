@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.16.1"
+VERSION = "0.17.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -294,6 +294,7 @@ class Connector:
         self.native_button_sources = set()
         self.button_status = {}
         self.stream = None
+        self.media_worker = None
         if self.outbox_file.exists():
             if self.outbox_file.stat().st_size > 512000:
                 raise BridgeError("The local pending readings file is too large. Stop and check the local installation.")
@@ -488,6 +489,8 @@ class Connector:
             if previous and utc_timestamp(previous.get("last_updated")) > utc_timestamp(state.get("last_updated")):
                 return
             self.current[entity] = {**state, "attributes": dict(state["attributes"])}
+            if self.media_worker and entity in self.media_worker.selected:
+                self.media_worker.wake.set()
             if entity.startswith("weather."):
                 self.wake.set()
                 return
@@ -533,8 +536,9 @@ class Connector:
         with self.lock:
             tracked = {d["entity_id"] for d in self.tracked if self.collectable(d)} & self.allowlist
             self.pending = {k:v for k,v in self.pending.items() if v.get("entity_id") in tracked and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
-            if self.stream_connected:
-                # Heartbeats re-observe the current cache only while the socket is healthy.
+            heartbeat = self.clock() >= self.next_sync
+            if self.stream_connected and heartbeat:
+                # Re-observe quiet entities every ten seconds, independently of busy inputs.
                 for state in list(self.current.values()):
                     if state["entity_id"] in tracked and not any(v["entity_id"] == state["entity_id"] for v in self.pending.values()) and len(self.pending) < MAX_PENDING:
                         clean = observation(state)
@@ -553,6 +557,8 @@ class Connector:
         result = self.cloud("sync", payload)
         with self.lock:
             self.tracked = result["tracked"]
+            if heartbeat or not connected:
+                self.next_sync = self.clock() + 10
             self.ready.set()
             if connected:
                 for sent in batch:
@@ -607,6 +613,7 @@ class Connector:
         try:
             from media_control import MediaControls
             media_worker = MediaControls(self)
+            self.media_worker = media_worker
             media_worker.start()
         except Exception:
             logging.warning("Media controls could not start; home readings continue.")
@@ -634,9 +641,8 @@ class Connector:
                     if due:
                         self.stream_sync()
                         on_status("synced")
-                        self.next_sync = self.clock() + 10
-                        # Coalesce event bursts and stay below the cloud's sync rate limit.
-                        next_attempt = self.clock() + 1
+                        # A half-second floor stays below 120 uploads/minute, plus network time.
+                        next_attempt = self.clock() + 0.5
                         self.backoff = 2
                 except AccessEnded:
                     raise
@@ -682,6 +688,7 @@ class HAStream:
         self.stopped = threading.Event()
         self.thread = None
         self.socket = None
+        self.connected_at = None
 
     def discover_buttons(self, websocket):
         for source, virtual in self.c.button_sources.items():
@@ -822,6 +829,7 @@ class HAStream:
             for state in states:
                 self.c.accept_state(state)
             self.c.stream_connected = True
+            self.connected_at = time.monotonic()
             self.c.next_sync = 0
             self.c.wake.set()
         for ident, kind in [(2, "entity"), (3, "device"), (4, "area")]:
@@ -885,6 +893,7 @@ class HAStream:
     def run(self):
         delay = 2
         while not self.stopped.is_set():
+            self.connected_at = None
             try:
                 url = "ws://supervisor/core/websocket" if self.c.supervisor else self.c.ha_url.replace("http://", "ws://", 1).replace("https://", "wss://", 1) + "/websocket"
                 with self.connect(url, proxy=None, compression=None, open_timeout=10, close_timeout=3,
@@ -896,6 +905,10 @@ class HAStream:
                 # Never log tokens, URLs, registry entries or exception messages.
                 logging.warning("Home Assistant stream unavailable. Reconnecting with a fresh snapshot.")
             finally:
+                # A healthy session resets outage backoff; separate brief outages must
+                # not inherit a thirty-second delay from an older disconnection.
+                if self.connected_at is not None and time.monotonic() - self.connected_at >= 10:
+                    delay = 2
                 with self.c.lock:
                     self.c.stream_connected = False
                     self.c.next_sync = 0

@@ -1,4 +1,13 @@
-# 0.16.1 — 17 October 2026
+# 0.17.0 — 17 October 2026
+
+- Send changed readings promptly without re-uploading every quiet device for each event. Keep a separate ten-second observation heartbeat so quiet readings stay current during busy periods.
+- Reduce the upload burst floor from one second to half a second, within the existing 120 requests/minute bound.
+- Separate media playback uploads, commands and favourite discovery. Live media changes wake the publisher; slow browsing or a control request cannot block playback readings.
+- Reset Home Assistant reconnect backoff after a healthy session so later brief outages do not inherit an older thirty-second retry delay.
+- Preserve the app slug, pairing, selected devices, settings revision, management opt-out and all existing permissions. No new feature checkbox or device reporting-rate change.
+- P1 five-second detection/seven-second clearing is a separate local commissioning setting. Publishing this update does not configure or wake a physical sensor.
+
+## 0.16.1 — 17 October 2026
 
 - Offer the actual integer fan speed levels derived from its reported percentage step, including three-speed fans. Use the same levels in manual controls, routines and local dispatch validation.
 - Retain the device families and consent/permission boundaries introduced in 0.16.0.

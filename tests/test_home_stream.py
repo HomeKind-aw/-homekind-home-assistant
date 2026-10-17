@@ -23,6 +23,38 @@ class StreamTests(unittest.TestCase):
         c.ha_token='local-fixture-only';c.credentials['bridge_id']='fixture';c.tracked=[{'entity_id':'binary_sensor.lounge'}]
         return c
 
+    def test_changed_readings_do_not_reupload_all_quiet_entities(self):
+        sent=[]
+        selected=['binary_sensor.lounge','sensor.temperature']
+        def request(url,token,payload):
+            sent.append(payload)
+            return {'tracked':[{'entity_id':e} for e in selected]}
+        with tempfile.TemporaryDirectory() as directory:
+            c=self.connector(directory,request=request,entity_ids=selected)
+            c.tracked=[{'entity_id':e} for e in selected];c.stream_connected=True
+            c.accept_state(state());c.accept_state(state('sensor.temperature','21',klass='temperature'))
+            c.stream_sync();self.assertEqual(len(sent[-1]['states']),2)
+            heartbeat=c.next_sync
+            c.accept_state(state(value='off',at='2026-10-14T00:00:02Z'))
+            c.stream_sync();self.assertEqual([r['entity_id'] for r in sent[-1]['states']],['binary_sensor.lounge'])
+            self.assertEqual(c.next_sync,heartbeat)
+            c.clock=lambda:NOW+11;c.stream_sync()
+            self.assertEqual({r['entity_id'] for r in sent[-1]['states']},set(selected))
+
+    def test_quiet_entity_heartbeat_survives_constant_other_device_changes(self):
+        sent=[];clock=[NOW]
+        def request(url,token,payload):
+            sent.append(payload)
+            return {'tracked':[{'entity_id':'binary_sensor.lounge'},{'entity_id':'sensor.temperature'}]}
+        with tempfile.TemporaryDirectory() as directory:
+            c=self.connector(directory,request=request,entity_ids=['binary_sensor.lounge','sensor.temperature'])
+            c.clock=lambda:clock[0];c.tracked=[{'entity_id':e} for e in c.allowlist];c.stream_connected=True
+            c.accept_state(state());c.accept_state(state('sensor.temperature','21',klass='temperature'));c.stream_sync()
+            for i in range(1,12):
+                clock[0]=NOW+i;c.accept_state(state(value='on' if i%2 else 'off',at=f'2026-10-14T00:00:{i+2:02}Z'));c.stream_sync()
+            checks=[p for p in sent[1:] if any(r['entity_id']=='sensor.temperature' for r in p['states'])]
+            self.assertEqual(len(checks),1)
+
     def test_read_only_is_default_and_never_dispatches_a_service(self):
         calls=[]
         with tempfile.TemporaryDirectory() as d:
@@ -87,6 +119,27 @@ class StreamTests(unittest.TestCase):
             s.registry({2:[{'entity_id':'binary_sensor.lounge','unique_id':'abc','platform':'mqtt','device_id':'dev','secret':'excluded'},{'entity_id':'camera.private','unique_id':'not-shared'}],3:[{'id':'dev','area_id':'lounge'}],4:[{'area_id':'lounge','name':'Living room 1'}]})
             self.assertEqual(c.registry['binary_sensor.lounge']['ha_area_name'],'Living room 1')
             self.assertNotIn('camera.private',c.registry);self.assertNotIn('secret',str(c.registry))
+
+    def test_healthy_sessions_reset_the_reconnect_backoff(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            c=self.connector(directory);stream=bridge.HAStream(c,connect=lambda *args,**kwargs:None)
+            waits=[]
+            class Stop:
+                def is_set(self):return len(waits)>=4
+                def wait(self,delay):waits.append(delay)
+            class Socket:
+                def __enter__(self):return self
+                def __exit__(self,*args):return False
+            stream.stopped=Stop();stream.connect=lambda *args,**kwargs:Socket()
+            attempts=[0]
+            def session(ws):
+                attempts[0]+=1
+                if attempts[0]==3:stream.connected_at=0
+                raise OSError('fixture connection loss')
+            stream.session=session
+            with patch.object(bridge.time,'monotonic',return_value=20):stream.run()
+            self.assertEqual(waits,[2,4,2,4])
 
     def test_supervisor_uses_its_dedicated_websocket_proxy(self):
         from unittest.mock import patch

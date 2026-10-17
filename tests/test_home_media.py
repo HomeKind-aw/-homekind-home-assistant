@@ -27,6 +27,38 @@ class MediaTests(unittest.TestCase):
         c.current['media_player.sonos'] = self.state(); c.stream_connected = True
         return c
 
+    def test_sync_never_waits_for_favourite_browsing(self):
+        calls=[]
+        c=self.connector(lambda url,token,data=None:calls.append(url) or {'ok':True})
+        worker=media.MediaControls(c)
+        worker.browse=lambda *args:self.fail('Favourite discovery blocked playback')
+        worker.sync()
+        self.assertTrue(any(url.endswith('media-sync') for url in calls))
+
+    def test_slow_media_poll_does_not_hold_up_playback_publishing(self):
+        entered,release,published=[threading.Event() for _ in range(3)]
+        def request(url,token,data=None):
+            if url.endswith('media-poll'):
+                entered.set();release.wait(3);return {'commands':[]}
+            if url.endswith('media-sync') and entered.is_set():published.set()
+            return {'ok':True}
+        c=self.connector(request);c.ready.set()
+        worker=media.MediaControls(c);worker.radio.start=lambda:None
+        worker.radio.catalogue=lambda:{'status':'ready','country':'AU','stations':[]}
+        worker.browse=lambda *args:None
+        c.media_worker=worker;worker.start()
+        try:
+            self.assertTrue(entered.wait(1));worker.last_payload=None;worker.wake.set()
+            self.assertTrue(published.wait(1))
+        finally:
+            c.halt.set();release.set();worker.join(timeout=3)
+
+    def test_home_assistant_media_change_wakes_only_the_media_lane(self):
+        c=self.connector(lambda *args:{})
+        worker=media.MediaControls(c);c.media_worker=worker
+        state=self.state();state.update(last_updated='2026-10-17T00:00:01Z',last_changed='2026-10-17T00:00:01Z')
+        c.accept_state(state);self.assertTrue(worker.wake.is_set())
+
     def test_now_playing_has_only_supported_fields_and_no_content_addresses(self):
         result = media.playback(self.state(), {})
         self.assertEqual(result['volume'], .3)

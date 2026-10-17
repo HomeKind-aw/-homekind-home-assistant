@@ -1,4 +1,4 @@
-# HomeKind Home Connector 0.16.1
+# HomeKind Home Connector 0.17.0
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, enable HomeKind management with the resident and connect. Add supported devices in HomeKind. It reuses the existing HomeKind bridge service and runs on your Green.
 
@@ -127,3 +127,9 @@ Install and commission it once with the resident; normal connector feature choic
 stay in HomeKind. Its manager permission is isolated from the ordinary connector.
 Actual Green update/restore tests are required before stable rollout. See
 [Maintenance Companion](homekind_maintenance/README.md).
+
+## Faster signal delivery (0.17.0)
+
+Readings use their own change-upload lane and a separate ten-second quiet-device heartbeat. The upload floor is half a second, within the existing cloud limit. Media playback, favourites and commands run independently. A healthy Home Assistant session resets reconnect backoff. Pairing, local selections, opt-out and feature choices are retained; no new feature checkbox is needed.
+
+Sensor hardware still controls when a measurement exists. For a confirmed Aqara P1 using Zigbee2MQTT, the agreed pilot profile is a five-second `detection_interval` and seven-second `occupancy_timeout`. Wake the P1 with one brief button press before changing its interval, confirm the interval reads back as 5, then set/check the clearing option as 7. Retain any existing sensitivity choice. Observe actual on/off timing before accepting the profile. This is a local setting, not an automatic consequence of updating the connector; no HomeKind status is cleared ahead of Home Assistant.
