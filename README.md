@@ -1,4 +1,4 @@
-# HomeKind Home Connector 0.12.0
+# HomeKind Home Connector 0.14.0
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, tick the sensors you choose and connect. It reuses the existing HomeKind bridge service and runs on your Green.
 
@@ -17,6 +17,8 @@ The connector repository is public so Home Assistant can download and install it
 For an optional computer-based local install, copy `homekind_bridge` into Home Assistant's `local_apps` directory, refresh the App store and install it under Local apps. Use **Open Web UI** for the same setup steps.
 
 ## Update an existing installation
+
+From 0.14.0, the installer can enable **Manage feature choices in HomeKind** once in Web UI and save the existing sensor selection. After that, use **HomeKind → Settings → Devices → Connection settings → Connection choices** to manage light/plug requests, media controls and live-camera availability for the selected devices. Camera viewers and each person's health consent keep their separate choices. Existing installations retain their current settings and local management until explicitly enrolled. No new pairing code is needed for this upgrade. Automatic app updates are configured once during installation; this release does not silently enable them or provide fleet rollback.
 
 The `homekind_bridge` app slug and `/data/homekind` credentials directory are unchanged. A local installation and a repository installation have different Home Assistant repository identifiers, so use **Stop connection** in HomeKind before moving between them and pair the replacement once. An update within the same app installation preserves its credentials. Do not run two connectors for the same household.
 

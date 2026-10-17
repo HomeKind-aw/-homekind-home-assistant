@@ -11,8 +11,9 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from bridge import AccessEnded, BridgeError, Connector, ENTITY, atomic_json, request_json, safe_entity, catalog_entry, button_candidates
+from bridge import AccessEnded, BridgeError, Connector, ENTITY, VERSION, CLOUD_URL, atomic_json, request_json, safe_entity, catalog_entry, button_candidates
 from health_import import HealthImports, HealthImportError
+import managed_settings
 
 
 class SetupError(Exception):
@@ -72,8 +73,10 @@ class SetupManager:
             options = json.loads(path.read_text())
             if not isinstance(options, dict):
                 raise SetupError("The saved settings need to be checked locally.")
-            # Local Home Assistant administrators choose whether commands are allowed.
-            return {"read_only": options.get("read_only", True) is not False, "entity_ids": options.get("entity_ids", []), "pairing_code": options.get("pairing_code", ""), "live_camera_entity_ids": options.get("live_camera_entity_ids", []), "media_control_entity_ids": options.get("media_control_entity_ids", [])}
+            try:
+                return managed_settings.normalise(options)
+            except managed_settings.SettingsError as error:
+                raise SetupError(str(error)) from None
 
     def paired(self):
         if not self.credentials.exists():
@@ -104,10 +107,13 @@ class SetupManager:
         return result[:4000]
 
     def configure(self, data):
-        if not isinstance(data, dict) or set(data) - {"pairing_code", "entity_ids", "read_only", "live_camera_entity_ids", "media_control_entity_ids"}:
+        if not isinstance(data, dict) or set(data) - {"pairing_code", "entity_ids", "read_only", "live_camera_entity_ids", "media_control_entity_ids", "managed_settings"}:
             raise SetupError("Check the pairing code and selected sensors.")
         if "read_only" in data and not isinstance(data["read_only"], bool):
             raise SetupError("Choose whether device controls are allowed.")
+        if "managed_settings" in data and type(data["managed_settings"]) is not bool:
+            raise SetupError("Choose whether to manage features in HomeKind.")
+        previous = self.options()
         read_only = data.get("read_only", self.options()["read_only"])
         entities = data.get("entity_ids")
         if not isinstance(entities, list) or not 0 <= len(entities) <= 250 or any(not isinstance(entity, str) or not ENTITY.fullmatch(entity) for entity in entities):
@@ -134,7 +140,15 @@ class SetupManager:
         if not pairing and (not self.paired() or self.phase == "pairing_required"):
             raise SetupError("Create a pairing code in HomeKind, then paste it here.")
         with self.lock:
-            atomic_json(self.settings, {"pairing_code": pairing, "entity_ids": entities, "read_only": read_only, "live_camera_entity_ids": live, "media_control_entity_ids": media})
+            if self.options() != previous:
+                raise SetupError("Settings changed. Reload this screen before saving.")
+            saved = {**previous, "pairing_code": pairing, "entity_ids": entities, "read_only": read_only, "live_camera_entity_ids": live, "media_control_entity_ids": media,
+                     "managed_settings": data.get("managed_settings", previous.get("managed_settings", False))}
+            local_change = any(saved.get(key) != previous.get(key) for key in ("managed_settings", "entity_ids", "read_only", "live_camera_entity_ids", "media_control_entity_ids"))
+            if local_change:
+                saved.update(management_id=secrets.token_hex(16) if saved["managed_settings"] else "", applied_revision=0)
+            saved = managed_settings.normalise(saved)
+            atomic_json(self.settings, saved)
             self.phase = "starting"
             self.message = "Settings saved. Connecting your selected sensors…"
             self.changed.set()
@@ -146,7 +160,35 @@ class SetupManager:
             connected = bool(c and c.stream_connected)
             phase = "waiting" if self.phase == "connected" and not connected else self.phase
             message = "Waiting for a fresh Home Assistant connection." if phase != self.phase else self.message
-            return {"phase": phase, "message": message, "paired": self.paired(), "button_inputs": list(c.button_status.values()) if c else [], "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": self.options()["read_only"], "live_camera_entity_ids": self.options().get("live_camera_entity_ids", []), "media_control_entity_ids": self.options().get("media_control_entity_ids", [])}
+            return {"phase": phase, "message": message, "paired": self.paired(), "button_inputs": list(c.button_status.values()) if c else [], "home_assistant_connected": connected, "last_cloud_at": self.last_cloud_at, "selected_count": len(self.options().get("entity_ids", [])), "read_only": self.options()["read_only"], "live_camera_entity_ids": self.options().get("live_camera_entity_ids", []), "media_control_entity_ids": self.options().get("media_control_entity_ids", []), "managed_settings": self.options().get("managed_settings", False), "applied_revision": self.options().get("applied_revision", 0)}
+
+    def configuration_once(self):
+        with self.lock:
+            if not self.paired():
+                return
+            options = self.options()
+            credentials = json.loads(self.credentials.read_text())
+        payload = {"bridge_id": credentials["bridge_id"], "protocol": managed_settings.PROTOCOL, "version": VERSION,
+                   "management_id": options.get("management_id", ""), "applied_revision": options.get("applied_revision", 0),
+                   "selected_entities": options["entity_ids"], "config": {key: options.get(key, [] if key != "read_only" else True) for key in managed_settings.FIELDS}}
+        result = self.request(CLOUD_URL + "/configuration", credentials["token"], payload, timeout=5)
+        with self.lock:
+            # A concurrent local edit, pause or replacement always takes priority.
+            if options != self.options() or credentials != json.loads(self.credentials.read_text()):
+                return
+            saved = managed_settings.apply(options, result.get("desired") if isinstance(result, dict) else None)
+            if saved is not None:
+                atomic_json(self.settings, saved)
+                self.changed.set()
+
+    def configuration_loop(self):
+        while not self.stopped.is_set():
+            try:
+                self.configuration_once()
+            except (BridgeError, SetupError, OSError, ValueError, KeyError, RecursionError):
+                # Settings failures cannot interrupt readings or device controls.
+                pass
+            self.stopped.wait(15)
 
     def run(self):
         while not self.stopped.is_set():
@@ -296,6 +338,7 @@ def main():
     manager = SetupManager()
     worker = threading.Thread(target=manager.run, daemon=True)
     worker.start()
+    threading.Thread(target=manager.configuration_loop, name="homekind-settings", daemon=True).start()
     logging.info("HomeKind setup is ready. Open Web UI in Home Assistant.")
     with SetupServer(("0.0.0.0", 8099), manager) as server:
         try:

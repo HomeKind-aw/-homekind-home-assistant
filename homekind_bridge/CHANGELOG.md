@@ -1,3 +1,12 @@
+# 0.14.0 — 17 October 2026
+
+- Added one-time local enrolment for managing feature choices in HomeKind.
+- Retains pairing, sensor selections and existing permissions through upgrades.
+- Validates bounded feature changes against the local selection and settings revision. Local changes invalidate pending requests.
+- A separate settings worker keeps configuration outages from interrupting home readings and controls.
+- Legacy installations stay under local management until explicitly enrolled. Personal health consent and approved camera viewers are unchanged.
+- Software migration and permission checks are automated. Physical Green commissioning remains required. Automatic fleet rollout and rollback are separate work.
+
 ## 0.12.0
 
 ## 0.13.0 — Free radio and household favourites

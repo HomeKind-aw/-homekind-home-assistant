@@ -39,3 +39,14 @@ The bounded outage queue retains the latest state, not every transition.
 
 Outstanding items / owner decisions / commissioning sign-off:
 _____________________________________________________________
+Managed feature settings — connector 0.14.0 (17 October 2026)
+  Upgrade this same paired installation. Confirm selected devices, media, cameras
+  and existing light/plug choices remain intact without entering another code.
+  Enable Manage feature choices in HomeKind once, with the resident's agreement.
+  Use HomeKind Devices > Connection settings > Connection choices for a selected
+  media player. Confirm pending changes become confirmed after the home responds.
+  Test the actual player's controls and one approved camera separately.
+  Make a local change or opt out; verify an older pending app request cannot undo it.
+  Confirm existing readings recover after the connector applies a settings change.
+  Confirm automatic app update settings and backup/recovery with the installer.
+  Software checks do not complete these physical Green/iPhone commissioning steps.

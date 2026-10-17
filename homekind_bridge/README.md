@@ -1,5 +1,11 @@
 # HomeKind Home Connector
 
+## Feature choices in HomeKind (0.14.0)
+
+During installation, agree the selected devices with the resident and enable **Manage feature choices in HomeKind** once. Afterwards, use **HomeKind → Settings → Devices → Connection settings → Connection choices** for lights/plugs, media and live-camera availability. Existing device choices and credentials are retained on an update. Existing installations stay locally managed until explicitly enrolled. Camera viewers and personal health consent remain separate choices in HomeKind.
+
+Routine updates must keep the saved settings. An installer handles new device installation, the agreed automatic app update policy, backups and recovery. This version does not enable fleet software updates or rollback itself.
+
 Selected sensor readings from your Home Assistant Green, in your HomeKind home view.
 
 ## Current weather (0.8.0)
