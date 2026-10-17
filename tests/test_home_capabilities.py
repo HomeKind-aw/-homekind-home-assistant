@@ -52,6 +52,12 @@ class CapabilityTests(unittest.TestCase):
         self.assertEqual(caps.action_request(fan, 'percentage', {'value': 75}), ('fan', 'set_percentage', {'percentage': 75}))
         self.assertEqual(caps.action_request(fan, 'oscillate', {'value': False})[2], {'oscillating': False})
         self.assertTrue(caps.action_matches(fan, 'oscillate', {'value': True}))
+        three = copy.deepcopy(fan)
+        three['attributes']['percentage_step'] = 100 / 3
+        self.assertEqual(caps.percentage_values(100 / 3), [0, 33, 66, 100])
+        self.assertEqual(caps.action_request(three, 'percentage', {'value': 66})[2], {'percentage': 66})
+        with self.assertRaises(ValueError):
+            caps.action_request(three, 'percentage', {'value': 67})
         for a, p in [('percentage', {'value': 40}), ('oscillate', {'value': 'true'})]:
             with self.assertRaises(ValueError):
                 caps.action_request(fan, a, p)

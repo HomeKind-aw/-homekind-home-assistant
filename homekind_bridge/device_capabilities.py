@@ -22,6 +22,14 @@ def number(value, low, high):
     return type(value) in (int, float) and math.isfinite(value) and low <= value <= high
 
 
+def percentage_values(step):
+    step = step if number(step, 0.01, 100) else 1
+    if step <= 1:
+        return list(range(101))
+    count = min(100, math.floor(100 / step + 0.000001))
+    return sorted({0, 100, *(math.floor(i * step + 0.000001) for i in range(1, count + 1))})
+
+
 def capabilities(state):
     domain = str(state.get('entity_id', '')).split('.')[0]
     attrs = state.get('attributes', {})
@@ -96,9 +104,9 @@ def action_request(state, action, parameters=None):
     fields = {}
     services = {'on': 'turn_on', 'off': 'turn_off'}
     if action in ('brightness', 'position', 'tilt', 'percentage'):
-        if not number(value, 0, 100) or action != 'percentage' and value != round(value):
+        if not number(value, 0, 100) or value != round(value):
             raise ValueError('Choose a percentage between zero and one hundred.')
-        if action == 'percentage' and value not in (0, 100) and abs(value / caps.get('percentage_step', 1) - round(value / caps.get('percentage_step', 1))) > 0.02:
+        if action == 'percentage' and value not in percentage_values(caps.get('percentage_step', 1)):
             raise ValueError('Choose a speed supported by this fan.')
         services.update(brightness='turn_on', position='set_cover_position', tilt='set_cover_tilt_position', percentage='set_percentage')
         fields[{'brightness': 'brightness_pct', 'position': 'position', 'tilt': 'tilt_position', 'percentage': 'percentage'}[action]] = value

@@ -1,4 +1,9 @@
-# 0.16.0 — 17 October 2026
+# 0.16.1 — 17 October 2026
+
+- Offer the actual integer fan speed levels derived from its reported percentage step, including three-speed fans. Use the same levels in manual controls, routines and local dispatch validation.
+- Retain the device families and consent/permission boundaries introduced in 0.16.0.
+
+## 0.16.0 — 17 October 2026
 
 - Added a guided Wi-Fi/network setup path and an in-app device support guide. Reuse confirmed discovery for devices already integrated through Wi-Fi, Ethernet, Bluetooth, Z-Wave, Matter or Thread; initial network/vendor commissioning remains integration-specific.
 - Added curtains/blinds, fans and heating/cooling displays, supported controls and routine actions. Devices advertise their actual actions, modes, ranges, steps and units. Curtain position is 0% closed to 100% open. Stop remains available during a pending movement.
