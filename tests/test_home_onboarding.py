@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-APP = Path(__file__).parents[1] / 'bridge' / 'homekind_bridge'
+APP = Path(__file__).parents[1] / "homekind_bridge"
 sys.path.insert(0, str(APP))
 import device_onboarding as ob
 import managed_settings
@@ -67,7 +67,7 @@ class OnboardingTests(unittest.TestCase):
         return {**self.directive, 'phase': 'approved', 'revision': 1, 'approved': [{'entity_id': row['entity_id'], 'fingerprint': row['fingerprint'], 'device_id': DID}]}
 
     def test_discovery_is_metadata_only_and_supported(self):
-        rows = ob.candidates([STATE, {'entity_id': 'lock.front', 'state': 'unlocked'}, {'entity_id': 'weather.home', 'state': 'sunny'}], {'sensor.kitchen_temperature': {'ha_device_id': 'device', 'password': 'never'}}, set())
+        rows = ob.candidates([STATE, {'entity_id': 'person.resident', 'state': 'home'}, {'entity_id': 'weather.home', 'state': 'sunny'}], {'sensor.kitchen_temperature': {'ha_device_id': 'device', 'password': 'never'}}, set())
         self.assertEqual(len(rows), 1)
         self.assertTrue(rows[0]['new'])
         self.assertEqual(rows[0]['ha_device_id'], 'device')

@@ -1,5 +1,16 @@
 # HomeKind Home Connector
 
+## Device families, controls and routines (0.16.0)
+
+In **HomeKind → Settings → Devices**, choose **Add device → Add a Wi-Fi / network device** for setup guidance and confirmed discovery. **Device support** lists the available families. A device must first have a working Home Assistant integration, whichever radio or network it uses.
+
+Curtains/blinds support advertised open, close, stop, position and tilt. Fans support advertised on/off, speed and oscillation. Heating/cooling supports advertised modes and a bounded single target temperature when available. Dimmable lights support brightness. Controls start off for a new device; enable home requests in Connection choices, then opt in per device. Routines use the same capabilities and recheck access before dispatch. Stop requests do not prove physical completion.
+
+Expanded safety, environment and utility sensors display typed values and can be routine conditions. Locks, access covers, alarms, valves, humidifiers, water heaters, sirens and mowers provide status/conditions only. Generic scripts, scenes, resets and arbitrary services are not accepted. Health stays personal and is excluded from household routine conditions.
+
+Software upgrades preserve existing pairing, selections, feature choices and management enrolment. No new local feature checkbox is needed. Commission actual devices, including position endpoints, safe stop, fan steps and thermostat units/ranges, before relying on the new controls. Check iPhone/iPad layouts and local/outside-home behaviour.
+
+
 ## Add devices in HomeKind (0.15.0)
 
 After an installer updates this same connector and the home is enrolled in **Manage feature choices in HomeKind**, use **HomeKind → Settings → Devices → Add device**. Existing enrolled homes need no additional feature checkbox. Pairing credentials, existing selections and feature choices survive the update.

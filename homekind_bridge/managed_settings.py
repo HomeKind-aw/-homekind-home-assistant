@@ -20,7 +20,7 @@ def normalise(options):
               "media_control_entity_ids": options.get("media_control_entity_ids", []),
               "managed_settings": options.get("managed_settings") is True,
               "management_id": options.get("management_id", ""), "applied_revision": options.get("applied_revision", 0)}
-    if not isinstance(result["entity_ids"], list) or len(result["entity_ids"]) > 250 or any(not isinstance(e, str) or not re.fullmatch(r"(sensor|binary_sensor|light|switch|camera|event|media_player|weather|vacuum)\.[a-z0-9_]{1,150}", e) for e in result["entity_ids"]):
+    if not isinstance(result["entity_ids"], list) or len(result["entity_ids"]) > 250 or any(not isinstance(e, str) or not re.fullmatch(r"(sensor|binary_sensor|light|switch|camera|event|media_player|weather|vacuum|cover|fan|climate|humidifier|water_heater|lock|valve|alarm_control_panel|siren|lawn_mower)\.[a-z0-9_]{1,150}", e) for e in result["entity_ids"]):
         raise SettingsError("Check the selected home devices locally.")
     if len(set(result["entity_ids"])) != len(result["entity_ids"]):
         raise SettingsError("Choose each home device once.")

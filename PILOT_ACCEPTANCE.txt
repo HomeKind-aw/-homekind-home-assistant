@@ -64,3 +64,17 @@ Local opt-out or edit takes priority / existing readings survive cloud outage: _
 Controls stay off / live camera stays opt-in / personal health consent required: ______
 Room-limited helper / other household denied / verified manager allowed: ______
 iPhone flow / iPad flow / focus and review drafts during updates: ______
+
+WIDER DEVICE SUPPORT — 0.16.0 (physical checks not yet completed)
+Existing managed update retains settings without another checkbox: ______
+Wi-Fi setup guidance / existing integration discovery / confirmed room: ______
+Curtain open / close / stop during movement / 0 closed / 100 open: ______
+Supported cover position / tilt only / no access-door controls: ______
+Fan supported on/off / actual speed steps / oscillation: ______
+Thermostat actual unit / modes / range / step / safe target: ______
+Light brightness only where supported: ______
+Safety detection polarity / unknown/offline never treated as clear: ______
+Status-only lock / valve / alarm / mower families: ______
+Routine condition fields / action preview / current room access / pause: ______
+Lost response never retries automatically / physical result checked: ______
+iPhone / iPad / outside-home / startup and reconnect: ______

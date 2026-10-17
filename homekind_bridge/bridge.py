@@ -20,13 +20,13 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.15.0"
+VERSION = "0.16.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
-ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event|weather|vacuum)\.[a-z0-9_]{1,150}$")
-SENSOR_CLASSES = {"temperature", "humidity", "illuminance", "battery", "power", "energy", "voltage", "current", "signal_strength", "carbon_dioxide", "pm25", "pm10", "water"}
-BINARY_CLASSES = {"motion", "occupancy", "opening", "door", "window", "moisture", "vibration", "connectivity", "battery", "problem"}
+from device_capabilities import EXTRA_DOMAINS, STATES as DEVICE_STATES, SENSOR_CLASSES, BINARY_CLASSES, capabilities as device_capabilities, attributes as device_attributes, action_request, action_matches
+
+ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event|weather|vacuum|cover|fan|climate|humidifier|water_heater|lock|valve|alarm_control_panel|siren|lawn_mower)\.[a-z0-9_]{1,150}$")
 
 class BridgeError(Exception):
     pass
@@ -143,11 +143,13 @@ def safe_entity(state):
         return False
     domain = entity.split(".")[0]
     klass = reading_class(state)
-    return domain in ("light", "switch", "media_player", "camera", "weather", "vacuum") or (domain == "event" and klass in ("doorbell", "button")) or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS)) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
+    return domain in EXTRA_DOMAINS or domain in ("light", "switch", "media_player", "camera", "weather", "vacuum") or (domain == "event" and klass in ("doorbell", "button")) or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS or klass == "" and safe_reading(state))) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
 
 def observation(state):
     attrs = state.get("attributes", {})
     result = {"entity_id": state["entity_id"], "state": str(state.get("state", "unknown"))[:100], "unit": str(attrs.get("unit_of_measurement", ""))[:20], "device_class": reading_class(state)[:40], "assumed_state": attrs.get("assumed_state") is True, "last_updated": state.get("last_updated"), "last_changed": state.get("last_changed")}
+    if state["entity_id"].split(".")[0] in EXTRA_DOMAINS | {"light", "switch"}:
+        result.update(device_attributes(state))
     if state["entity_id"].startswith("weather."):
         result.update(unit="", device_class="weather")
         for key in ("temperature", "humidity", "wind_speed"):
@@ -177,7 +179,7 @@ def observation(state):
 
 def catalog_entry(state):
     attrs = state.get("attributes", {})
-    return {"entity_id": state["entity_id"], "name": str(attrs.get("friendly_name") or state["entity_id"])[:80], "device_class": "" if state["entity_id"].startswith("camera.") else reading_class(state)[:40], "unit": "" if state["entity_id"].startswith(("camera.", "event.")) else str(attrs.get("unit_of_measurement", ""))[:20]}
+    return {**({"capabilities": device_capabilities(state)} if state["entity_id"].split(".")[0] in EXTRA_DOMAINS | {"light", "switch"} else {}), "entity_id": state["entity_id"], "name": str(attrs.get("friendly_name") or state["entity_id"])[:80], "device_class": "" if state["entity_id"].startswith("camera.") else reading_class(state)[:40], "unit": "" if state["entity_id"].startswith(("camera.", "event.")) else str(attrs.get("unit_of_measurement", ""))[:20]}
 
 def button_candidates(states, stamp):
     """Local administrators can select a physical button action separately from its battery."""
@@ -200,6 +202,9 @@ def safe_reading(state):
     value = state.get("state", "")
     if not isinstance(value, str) or len(value) > 100:
         return False
+    domain = state["entity_id"].split(".")[0]
+    if domain in DEVICE_STATES:
+        return value in DEVICE_STATES[domain] | {"unknown", "unavailable"}
     if state["entity_id"].startswith("vacuum."):
         return value in VACUUM_STATES
     if state["entity_id"].startswith("weather."):
@@ -222,6 +227,27 @@ def utc_timestamp(value):
     except (ValueError, TypeError, AttributeError):
         return 0
 
+def bounded_catalog(rows):
+    if len(json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode()) <= 250000:
+        return rows
+    # Discovery identifiers are optional; keep every selected entity and capability.
+    return [{k: v for k, v in row.items() if not k.startswith("ha_")} for row in rows]
+
+
+def bounded_sync(payload):
+    result = {**payload, "catalog": bounded_catalog(payload["catalog"]), "states": []}
+    budget = 320000 - len(json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode())
+    if budget <= 0:
+        raise BridgeError("Reduce the selected device catalogue.")
+    for row in payload["states"]:
+        size = len(json.dumps(row, ensure_ascii=False, separators=(",", ":")).encode()) + 1
+        if size > budget:
+            break
+        result["states"].append(row)
+        budget -= size
+    return result
+
+
 def pending_key(reading):
     entity = reading.get("entity_id", "")
     event_id = reading.get("event_id", "")
@@ -237,6 +263,8 @@ class Connector:
         os.chmod(self.directory, 0o700)
         self.file = self.directory / "credentials.json"
         self.credentials = json.loads(self.file.read_text()) if self.file.exists() else {"installation_id": str(uuid.uuid4()), "token": secrets.token_hex(32)}
+        self.temperature_unit = None
+        self.unit_checked_at = 0
         self.tracked = []
         self.read_only = options.get("read_only", True) is not False
         entities = options.get("entity_ids", [])
@@ -313,8 +341,24 @@ class Connector:
     def cloud(self, operation, data=None):
         return self.request(CLOUD_URL + "/" + operation, self.credentials["token"], {"bridge_id": self.credentials["bridge_id"], **(data or {})})
 
+    def enrich(self, state):
+        if not isinstance(state, dict) or not isinstance(state.get("attributes", {}), dict):
+            return state
+        if str(state.get("entity_id", "")).split(".")[0] in ("climate", "water_heater") and state.get("attributes", {}).get("temperature_unit") not in ("°C", "°F"):
+            if self.clock() - self.unit_checked_at > 60:
+                self.unit_checked_at = self.clock()
+                try:
+                    config = self.request(self.ha_url + "/config", self.ha_token, timeout=3)
+                    self.temperature_unit = config.get("unit_system", {}).get("temperature")
+                except BridgeError:
+                    pass
+            if self.temperature_unit in ("°C", "°F"):
+                return {**state, "attributes": {**state.get("attributes", {}), "temperature_unit": self.temperature_unit}}
+        return state
+
     def ha(self, path, data=None):
-        return self.request(self.ha_url + "/" + path, self.ha_token, data)
+        result = self.request(self.ha_url + "/" + path, self.ha_token, data)
+        return [self.enrich(s) for s in result] if path == "states" and isinstance(result, list) else self.enrich(result) if path.startswith("states/") else result
 
     def sync(self):
         try:
@@ -328,7 +372,7 @@ class Connector:
         except BridgeError:
             self.cloud("sync", {"ha_connected": False, "catalog": [], "states": [], "version": VERSION})
             raise
-        result = self.cloud("sync", {"ha_connected": True, "catalog": catalog, "states": readings, "version": VERSION})
+        result = self.cloud("sync", bounded_sync({"ha_connected": True, "catalog": catalog, "states": readings, "version": VERSION}))
         self.tracked = result["tracked"]
 
     def collectable(self, device):
@@ -351,36 +395,53 @@ class Connector:
         result, observed = "failed", {}
         try:
             entity = claim["entity_id"]
-            if not ENTITY.fullmatch(entity) or entity.split(".")[0] not in ("light", "switch"):
+            if not ENTITY.fullmatch(entity) or entity.split(".")[0] not in ("light", "switch", "cover", "fan", "climate"):
                 raise BridgeError("Unsupported control.")
-            before = self.ha("states/" + entity)
-            if before.get("state") not in ("on", "off"):
+            before = self.enrich(self.ha("states/" + entity))
+            if not safe_entity(before) or not safe_reading(before) or before.get("state") in ("unknown", "unavailable"):
                 raise BridgeError("Device is unavailable.")
             if self.stopping():
                 return
             command = self.cloud("authorize", {"command_id": claim["id"], "lease_id": claim["lease_id"]})
             if command["entity_id"] != entity:
                 raise BridgeError("Control target changed.")
-            if not ENTITY.fullmatch(entity) or command["domain"] not in ("light", "switch") or command["service"] != "turn_" + command["desired"] or command["desired"] not in ("on", "off"):
+            try:
+                domain, service, parameters = action_request(before, command["desired"], command.get("parameters", {}))
+            except ValueError:
+                raise BridgeError("Unsupported control.") from None
+            if command.get("domain") != domain or command.get("service") != service:
                 raise BridgeError("Unsupported control.")
+            if domain not in ("light", "switch") or command["desired"] not in ("on", "off"):
+                before = self.enrich(self.ha("states/" + entity))
+                if not safe_entity(before) or not safe_reading(before) or before.get("state") in ("unknown", "unavailable"):
+                    raise BridgeError("Device is unavailable.")
+                try:
+                    current_domain, current_service, parameters = action_request(before, command["desired"], command.get("parameters", {}))
+                except ValueError:
+                    raise BridgeError("Device capabilities changed.") from None
+                if current_domain != domain or current_service != service:
+                    raise BridgeError("Device capabilities changed.")
+                services = self.ha("services")
+                if not isinstance(services, list) or not any(row.get("domain") == domain and service in row.get("services", {}) for row in services if isinstance(row, dict)):
+                    raise BridgeError("Unsupported control.")
             if entity not in self.allowlist or not any(d["entity_id"] == entity and d["control_enabled"] for d in self.tracked):
                 raise BridgeError("Control is not enabled locally.")
             if utc_timestamp(command["expires_at"]) <= self.clock():
                 raise BridgeError("Command has expired.")
             if self.stopping():
                 return
-            if before["state"] == command["desired"]:
+            if action_matches(before, command["desired"], command.get("parameters")):
                 result, observed = "reported", observation(before)
             else:
                 sent = True
-                self.ha("services/" + command["domain"] + "/" + command["service"], {"entity_id": entity})
+                self.ha("services/" + domain + "/" + service, {"entity_id": entity, **parameters})
                 result = "unconfirmed"
                 for _ in range(10):
                     if self.stopping():
                         return
-                    after = self.ha("states/" + entity)
+                    after = self.enrich(self.ha("states/" + entity))
                     observed = observation(after)
-                    if after.get("state") == command["desired"]:
+                    if action_matches(after, command["desired"], command.get("parameters")):
                         changed = after.get("last_updated") != before.get("last_updated") or after.get("context", {}).get("id") != before.get("context", {}).get("id")
                         result = "confirmed" if changed and not observed["assumed_state"] else "reported"
                         self.accept_state(after)
@@ -391,7 +452,7 @@ class Connector:
             self.halt.set()
             self.wake.set()
             raise
-        except BridgeError:
+        except (BridgeError, ValueError, KeyError, TypeError):
             result = "unconfirmed" if sent else "failed"
         # Never retry a service call after a transport failure or lost acknowledgement.
         if command is not None and not self.stopping():
@@ -412,6 +473,7 @@ class Connector:
         atomic_json(self.outbox_file, self.pending)
 
     def accept_state(self, state, observed_at=None):
+        state = self.enrich(state)
         if not isinstance(state, dict) or state.get("entity_id") not in self.allowlist or not safe_entity(state) or not safe_reading(state):
             return
         if not utc_timestamp(state.get("last_updated")) or not utc_timestamp(state.get("last_changed")):
@@ -486,6 +548,8 @@ class Connector:
             batch = list(self.pending.values())[:MAX_PENDING]
             payload = {"ha_connected": connected, "catalog": catalog, "states": batch if connected else [], "version": VERSION,
                        "bridge_info": {"read_only": self.read_only, "stream_connected": connected, "observed_at": self.stamp(), "queue_size": len(self.pending), "queue_dropped": self.dropped, "weather": self.shared_weather() if connected else []}}
+        payload = bounded_sync(payload)
+        batch = payload["states"]
         result = self.cloud("sync", payload)
         with self.lock:
             self.tracked = result["tracked"]
@@ -499,6 +563,8 @@ class Connector:
                     elif self.pending.get(sent["entity_id"], {}).get("event_id") == sent["event_id"]:
                         self.pending.pop(sent["entity_id"], None)
             self.save_pending()
+            if self.pending:
+                self.wake.set()
 
     def command_loop(self, on_status):
         # Commands have their own lane: uploads and one slow device cannot block it.

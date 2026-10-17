@@ -1,6 +1,14 @@
-# HomeKind Home Connector 0.15.0
+# HomeKind Home Connector 0.16.0
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, enable HomeKind management with the resident and connect. Add supported devices in HomeKind. It reuses the existing HomeKind bridge service and runs on your Green.
+
+## Wider device support (0.16.0)
+
+HomeKind now guides Wi-Fi/network setup and supports curtains/blinds, fans and heating/cooling, alongside expanded numeric and detection sensors. Once the device's Home Assistant integration is ready, use **HomeKind → Settings → Devices → Add device**. Open **Device support** for the supported families and connection options.
+
+Selected devices show their actual supported controls. Choose **Connection choices → Allow supported device requests**, then explicitly allow controls in each device's preferences. Routines offer those same actions and typed reading fields. Position, speed and target temperature are bounded by the local device. Locks, access doors, alarms, valves, humidifiers, water heaters, sirens and mowers provide status and routine conditions; their service controls stay in their integration. Personal health keeps its existing individual consent path.
+
+Updating this same managed installation needs no new feature checkbox, pairing code or permission to every entity. Existing light/plug, media and camera choices survive. Initial Wi-Fi passwords, vendor login, Matter commissioning and new integration installation still follow their own local setup instructions. Physical testing is required before relying on a newly connected device.
 
 ## Add devices in HomeKind (0.15.0)
 

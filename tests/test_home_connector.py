@@ -1,5 +1,6 @@
 import json
 import importlib.util
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -7,6 +8,7 @@ import threading
 import time
 from unittest.mock import patch
 
+sys.path.insert(0, str(Path(__file__).parents[1] / "homekind_bridge"))
 spec = importlib.util.spec_from_file_location("bridge", Path(__file__).parents[1]/"homekind_bridge/bridge.py")
 bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)

@@ -1,4 +1,14 @@
-# 0.15.0 — 17 October 2026
+# 0.16.0 — 17 October 2026
+
+- Added a guided Wi-Fi/network setup path and an in-app device support guide. Reuse confirmed discovery for devices already integrated through Wi-Fi, Ethernet, Bluetooth, Z-Wave, Matter or Thread; initial network/vendor commissioning remains integration-specific.
+- Added curtains/blinds, fans and heating/cooling displays, supported controls and routine actions. Devices advertise their actual actions, modes, ranges, steps and units. Curtain position is 0% closed to 100% open. Stop remains available during a pending movement.
+- Added light brightness where supported, and expanded environmental, utility and safety sensor classes. Added status and routine conditions for locks, access covers, valves, humidifiers, water heaters, alarm panels, sirens and mowers.
+- Added routine reading fields for position, tilt, brightness, fan speed, current/target temperature, humidity, HVAC activity and recent button/doorbell events. Health remains excluded from household routines.
+- New actions use the same expiring, single-dispatch leases and room permissions as existing controls. Validate actual local capabilities after authorisation; never retry an uncertain physical request or label stop physically confirmed.
+- Preserve pairing, selections, management enrolment and feature choices. No extra Home Assistant feature checkbox. Bound richer upload batches to the existing API limits.
+- Automated app, database, connector and architecture checks remain separate from physical commissioning.
+
+## 0.15.0 — 17 October 2026
 
 - Add supported devices from HomeKind: discover existing Home Assistant devices, or open a bounded joining window on a locally verified ZHA or Zigbee2MQTT network.
 - Require explicit reading, name and room confirmation before expanding the local selection; preserve existing pairing and feature choices without another routine HA checkbox.
