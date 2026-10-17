@@ -1,6 +1,19 @@
-# HomeKind Home Connector 0.14.0
+# HomeKind Home Connector 0.15.0
 
-An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, tick the sensors you choose and connect. It reuses the existing HomeKind bridge service and runs on your Green.
+An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, enable HomeKind management with the resident and connect. Add supported devices in HomeKind. It reuses the existing HomeKind bridge service and runs on your Green.
+
+## Add devices in HomeKind (0.15.0)
+
+After an installer updates this same connector and the home is enrolled in **Manage feature choices in HomeKind**, use **HomeKind → Settings → Devices → Add device**. Existing enrolled homes need no additional feature checkbox. Pairing credentials, existing selections and feature choices survive the update.
+
+- **Find connected devices** searches supported devices already in Home Assistant.
+- **Pair a new Zigbee device** is available for an existing ZHA network, or a Zigbee2MQTT network whose exact permit-join route can be verified from Home Assistant's local MQTT discovery. Joining is limited to 90 seconds; follow the device manufacturer's pairing instructions. A missing network, vendor account, Wi-Fi or Bluetooth integration can still need an installer in Home Assistant. This does not implement Matter or arbitrary integration setup.
+- Review a found physical device, select its readings, confirm names and rooms, then explicitly add them. Metadata is shared only during the expiring setup session; readings are not added to the local selection before confirmation. Existing local selections are retained.
+- Wait for the home connector's acknowledgement and check the first real reading. Confirmation does not mark a device Tested or Active. Controls and live cameras remain separate choices in HomeKind; health devices stay **On person** and require the person's own connection and sharing choices in **My sharing**.
+
+Setup requires a current verified account with both home-connection administration and whole-home device-setup access. Requests expire after five minutes or the requesting sign-in's expiry. Cancelling, changing local settings, replacing the connector or losing permission stops further setup; the radio also has its own short timer. An interrupted or expired addition is paused, and a rejected completion rolls back only its newly appended local selections when the connector next checks in. Closing a confirmed addition leaves its acknowledgement in progress; closing an unconfirmed search cancels it.
+
+The connector runs setup independently from ordinary readings. It accepts a typed session, a known local Zigbee adapter and explicitly approved entity fingerprints. It does not accept arbitrary Home Assistant services, MQTT topics, credentials, code or integration configuration from the cloud. No extra Supervisor privilege is required. Software tests cover the protocol and permissions; physical Green, radio, device, iPhone and iPad commissioning is still required.
 
 ## Install from the Home Assistant App store
 
@@ -11,8 +24,8 @@ The connector repository is public so Home Assistant can download and install it
 3. Install **HomeKind Home Connector**, enable **Start on boot**, and start it. The first installation builds the pinned container on your Green and needs internet. No pairing code is needed to start the setup screen.
 4. Tap **Open Web UI**. Leave this screen ready on your phone.
 5. Open your HomeKind household, then **Settings → Devices → Connect Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
-6. Return to the HomeKind Web UI inside Home Assistant. Paste the code, tick your intended sensors or device states, then tap **Connect household**. No file copying, terminal command or Home Assistant password is needed for this route.
-7. In HomeKind → **Settings → Devices → Add device**, add each discovered sensor and select its room. Exact area-name matches can suggest a room; confirm the actual room before saving.
+6. Return to the HomeKind Web UI inside Home Assistant. Paste the code and, with the resident, enable **Manage feature choices in HomeKind**. Initial sensor selection is optional for a managed home. Tap **Connect household**. No file copying, terminal command or Home Assistant password is needed for this route.
+7. In HomeKind → **Settings → Devices → Add device**, choose **Find connected devices** or pair a supported Zigbee device, then review and confirm its readings and rooms. Exact area-name matches can suggest a room; confirm the actual room before saving.
 
 For an optional computer-based local install, copy `homekind_bridge` into Home Assistant's `local_apps` directory, refresh the App store and install it under Local apps. Use **Open Web UI** for the same setup steps.
 

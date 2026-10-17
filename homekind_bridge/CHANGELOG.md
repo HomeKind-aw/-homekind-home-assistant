@@ -1,4 +1,13 @@
-# 0.14.0 — 17 October 2026
+# 0.15.0 — 17 October 2026
+
+- Add supported devices from HomeKind: discover existing Home Assistant devices, or open a bounded joining window on a locally verified ZHA or Zigbee2MQTT network.
+- Require explicit reading, name and room confirmation before expanding the local selection; preserve existing pairing and feature choices without another routine HA checkbox.
+- Verify current sign-in, home administration, identity fingerprints and local settings again before pairing or enrolment. Cancelled or expired additions are paused and rejected completions roll back new local selections.
+- Keep controls, camera viewers and personal health consent separate. Metadata contains no state values, media addresses or credentials.
+- Keep the optional onboarding worker independent from ordinary readings. Recover interrupted enrolment receipts without repeating a pairing request.
+- Automated UI, API, database, upgrade and container checks are separate from the required physical commissioning.
+
+## 0.14.0 — 17 October 2026
 
 - Added one-time local enrolment for managing feature choices in HomeKind.
 - Retains pairing, sensor selections and existing permissions through upgrades.

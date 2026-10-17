@@ -135,7 +135,7 @@ class SetupManager:
         pairing = pairing.strip()
         if pairing and not re.fullmatch(r"[0-9a-f]{64}", pairing):
             raise SetupError("Paste the complete pairing code from HomeKind.")
-        if not entities and not self.paired():
+        if not entities and not self.paired() and not data.get("managed_settings", previous.get("managed_settings", False)):
             raise SetupError("Choose at least one sensor to start your home connection.")
         if not pairing and (not self.paired() or self.phase == "pairing_required"):
             raise SetupError("Create a pairing code in HomeKind, then paste it here.")
@@ -195,7 +195,7 @@ class SetupManager:
             self.changed.clear()
             try:
                 options = self.options()
-                if not options.get("entity_ids") or not (options.get("pairing_code") or self.paired()):
+                if (not options.get("entity_ids") and not options.get("managed_settings")) or not (options.get("pairing_code") or self.paired()):
                     if self.paired() and not options.get("entity_ids"):
                         with self.lock:
                             self.phase = "paused"
@@ -339,6 +339,12 @@ def main():
     worker = threading.Thread(target=manager.run, daemon=True)
     worker.start()
     threading.Thread(target=manager.configuration_loop, name="homekind-settings", daemon=True).start()
+    try:
+        from device_onboarding import DeviceOnboarding
+        onboarding = DeviceOnboarding(manager)
+        threading.Thread(target=onboarding.run, name="homekind-onboarding", daemon=True).start()
+    except Exception:
+        logging.warning("Device setup could not start; existing home readings continue.")
     logging.info("HomeKind setup is ready. Open Web UI in Home Assistant.")
     with SetupServer(("0.0.0.0", 8099), manager) as server:
         try:

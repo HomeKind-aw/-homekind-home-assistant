@@ -50,3 +50,17 @@ Managed feature settings — connector 0.14.0 (17 October 2026)
   Confirm existing readings recover after the connector applies a settings change.
   Confirm automatic app update settings and backup/recovery with the installer.
   Software checks do not complete these physical Green/iPhone commissioning steps.
+
+DEVICE ONBOARDING — 0.15.0 (physical checks not yet completed)
+Existing managed installation updates without another feature checkbox: ______
+Existing pairing / local selections / controls / camera / media choices retained: ______
+ZHA 90-second join / automatic close / cancellation / reconnect: ______
+Zigbee2MQTT actual discovery route / matched permit response / automatic close: ______
+Find connected device / choose readings / confirm actual room: ______
+No new reading before confirmation / exact local acknowledgement: ______
+Battery device wake-up / first real reading / safe physical test: ______
+Expired or revoked setup paused / rejected enrolment local rollback: ______
+Local opt-out or edit takes priority / existing readings survive cloud outage: ______
+Controls stay off / live camera stays opt-in / personal health consent required: ______
+Room-limited helper / other household denied / verified manager allowed: ______
+iPhone flow / iPad flow / focus and review drafts during updates: ______
