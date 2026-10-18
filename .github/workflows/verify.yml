@@ -44,7 +44,7 @@ jobs:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
           docker buildx build --platform "$TARGET_PLATFORM" --load \
-            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.18.0 \
+            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.19.0 \
             --tag homekind-connector:verify ./homekind_bridge
       - name: Verify runtime and run software checks in the built container
         env:
@@ -52,7 +52,7 @@ jobs:
         run: |
           docker run --rm --platform "$TARGET_PLATFORM" \
             --entrypoint /opt/bridge/bin/python homekind-connector:verify \
-            -m py_compile /bridge.py /camera_relay.py /media_control.py /radio_directory.py /setup_server.py /managed_settings.py /device_onboarding.py /health_import.py /light_group.py /light_group_adapter.py
+            -m py_compile /bridge.py /camera_relay.py /media_control.py /radio_directory.py /setup_server.py /managed_settings.py /device_onboarding.py /health_import.py /light_group.py /light_group_adapter.py /voice_events.py /voice_transport.py
           docker run --rm --platform "$TARGET_PLATFORM" \
             --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" \
             --workdir /workspace --entrypoint /opt/bridge/bin/python \
@@ -99,6 +99,8 @@ jobs:
           TARGET_ARCH: ${{ matrix.arch }}
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          docker buildx build --platform "$TARGET_PLATFORM" --load --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.1.0 --tag homekind-maintenance:verify ./homekind_maintenance
-          docker run --rm --platform "$TARGET_PLATFORM" --entrypoint python3 homekind-maintenance:verify -m py_compile /maintenance.py
+          docker buildx build --platform "$TARGET_PLATFORM" --load --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.2.0 --tag homekind-maintenance:verify ./homekind_maintenance
+          docker run --rm --platform "$TARGET_PLATFORM" --entrypoint python3 homekind-maintenance:verify -c 'from homekind_maintenance import maintenance, windows, window_sync, window_runtime, system_updates; from zoneinfo import ZoneInfo; assert ZoneInfo("Australia/Melbourne")'
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_home_maintenance.py' -v
+          docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_*window*.py' -v
+          docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_system_updates.py' -v

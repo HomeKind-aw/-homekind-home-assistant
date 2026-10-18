@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.18.0"
+VERSION = "0.19.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -599,6 +599,17 @@ class Connector:
                     delay = min(max(2, delay * 2), 30)
                 self.halt.wait(delay)
 
+    def voice_feedback(self, value):
+        from voice_events import FEEDBACK, UUID
+        fields = {'protocol', 'event_id', 'endpoint_id', 'binding_id', 'binding_revision', 'status', 'text'}
+        if not isinstance(value, dict) or set(value) != fields or type(value['protocol']) is not int or value['protocol'] != 1 or any(not isinstance(value[k], str) or not UUID.fullmatch(value[k]) for k in ('event_id', 'endpoint_id', 'binding_id')) or type(value['binding_revision']) is not int or not 1 <= value['binding_revision'] <= 999999999 or not isinstance(value['status'], str) or value['status'] not in FEEDBACK or value['text'] != FEEDBACK[value['status']]:
+            raise BridgeError('Use defined voice feedback metadata.')
+        if self.stopping():
+            return
+        # A fixed local event only. Speaker choice/consent is checked by the
+        # commissioned HA package; event delivery alone is not spoken proof.
+        self.request(self.ha_url + '/events/homekind_voice_feedback', self.ha_token, value, timeout=2)
+
     def run(self, stop_event=None, on_status=lambda event: None):
         self.external_stop = stop_event or threading.Event()
         if self.stopping():
@@ -607,7 +618,16 @@ class Connector:
         if self.stopping():
             return
         on_status("paired")
+        voice_worker = None
+        try:
+            from voice_transport import VoiceWorker
+            voice_worker = VoiceWorker(self, self.directory / 'voice', feedback=self.voice_feedback, access_error=AccessEnded)
+            voice_worker.start()
+        except Exception:
+            logging.warning('Voice requests could not start; home readings continue.')
         self.stream = HAStream(self)
+        if voice_worker:
+            self.stream.on_voice = voice_worker.submit
         self.stream.start()
         media_worker = None
         try:
@@ -627,6 +647,7 @@ class Connector:
                 camera_worker = None
                 logging.warning("Live camera viewing could not start; home readings continue.")
         group_worker = None
+        voice_light_worker = None
         if not self.read_only:
             try:
                 from light_group_adapter import LightGroupWorker
@@ -634,6 +655,12 @@ class Connector:
                 group_worker.start()
             except Exception:
                 logging.warning("Coordinated light control could not start; home readings and existing controls continue.")
+            try:
+                from light_group_adapter import LightGroupWorker, VoiceLightAdapter
+                voice_light_worker = LightGroupWorker(self, adapter_class=VoiceLightAdapter)
+                voice_light_worker.start()
+            except Exception:
+                logging.warning('Voice light requests could not start; existing controls continue.')
         worker = None
         if not self.read_only:
             worker = threading.Thread(target=self.command_loop, args=(on_status,), name="homekind-commands", daemon=True)
@@ -666,6 +693,8 @@ class Connector:
             self.halt.set()
             self.wake.set()
             self.stream.stop()
+            if voice_worker:
+                voice_worker.stop()
             if media_worker:
                 media_worker.join(timeout=2)
             if camera_worker:
@@ -675,6 +704,8 @@ class Connector:
                 worker.join(timeout=30)
             if group_worker:
                 group_worker.join(timeout=30)
+            if voice_light_worker:
+                voice_light_worker.join(timeout=30)
 
 
 def atomic_json(path, data):
@@ -690,7 +721,7 @@ def atomic_json(path, data):
 
 class HAStream:
     """A read-only HA socket; only auth, registry reads and event subscription are sent."""
-    def __init__(self, connector, connect=None):
+    def __init__(self, connector, connect=None, on_voice=None):
         if connect is None:
             from websockets.sync.client import connect
         self.connect = connect
@@ -699,6 +730,9 @@ class HAStream:
         self.thread = None
         self.socket = None
         self.connected_at = None
+        # Optional bounded metadata admission only. Cloud calls belong to a
+        # separate worker; the default sensor/button stream stays unchanged.
+        self.on_voice = on_voice
 
     def discover_buttons(self, websocket):
         for source, virtual in self.c.button_sources.items():
@@ -846,6 +880,9 @@ class HAStream:
             websocket.send(json.dumps({"id": ident, "type": "config/" + kind + "_registry/list"}))
         if self.c.button_sources:
             websocket.send(json.dumps({"id": 5, "type": "subscribe_events", "event_type": "homekind_button"}))
+        voice_active = False
+        if self.on_voice is not None:
+            websocket.send(json.dumps({"id": 6, "type": "subscribe_events", "event_type": "homekind_voice_request"}))
         registries = {}
         self.next_id = 10
         self.button_requests, self.button_discovery = {}, {}
@@ -867,12 +904,23 @@ class HAStream:
                 if message.get("success") and isinstance(message.get("result"), list):
                     registries[message["id"]] = message["result"]
                     self.registry(registries)
+            elif message.get("type") == "result" and message.get("id") == 6 and self.on_voice is not None:
+                voice_active = message.get("success") is True
             elif message.get("type") == "result":
                 self.button_result(websocket, message)
             elif message.get("type") == "event" and message.get("id") in self.button_routes:
                 self.button_message(message)
             elif message.get("type") == "event" and message.get("id") == 5:
                 self.c.accept_button_event(message.get("event"))
+            elif message.get("type") == "event" and message.get("id") == 6 and voice_active:
+                event = message.get("event")
+                if isinstance(event, dict) and event.get("event_type") == "homekind_voice_request":
+                    try:
+                        self.on_voice(event)
+                    except Exception:
+                        # Invalid/full/revoked voice input must not interrupt
+                        # selected sensors/buttons or disclose its contents.
+                        pass
             elif message.get("type") == "event" and message.get("id") == 1:
                 data = message.get("event", {}).get("data", {})
                 state = data.get("new_state")

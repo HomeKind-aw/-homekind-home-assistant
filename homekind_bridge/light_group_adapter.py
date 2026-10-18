@@ -222,10 +222,12 @@ class VoiceLightAdapter(LightGroupAdapter):
 
 class LightGroupWorker(threading.Thread):
     """Optional lane; unsupported backend never interrupts legacy workers."""
-    def __init__(self, bridge):
-        super().__init__(name="homekind-light-groups", daemon=True)
+    def __init__(self, bridge, adapter_class=LightGroupAdapter):
+        if adapter_class not in (LightGroupAdapter, VoiceLightAdapter):
+            raise ValueError('Use a defined light worker.')
+        super().__init__(name="homekind-voice-lights" if adapter_class is VoiceLightAdapter else "homekind-light-groups", daemon=True)
         self.bridge = bridge
-        self.adapter = LightGroupAdapter(bridge)
+        self.adapter = adapter_class(bridge)
 
     def run(self):
         next_advertisement = 0
