@@ -49,7 +49,7 @@ def request(url, token, payload=None, timeout=25):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
             return None
     try:
-        with urllib.request.build_opener(NoRedirect).open(req, timeout=timeout) as response:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(req, timeout=timeout) as response:
             raw = response.read(65537)
             if len(raw) > 65536:
                 raise MaintenanceError('Response exceeds the maintenance limit.')
@@ -90,8 +90,8 @@ class Companion:
             raise MaintenanceError('Check local maintenance choices.')
         return value
 
-    def supervisor(self, path, payload=None):
-        result = self.call('http://supervisor'+path, self.token, payload)
+    def supervisor(self, path, payload=None, timeout=25):
+        result = self.call('http://supervisor'+path, self.token, payload, timeout=timeout)
         if not isinstance(result, dict) or result.get('result') != 'ok' or not isinstance(result.get('data'), dict):
             raise MaintenanceError('Supervisor did not confirm this maintenance request.')
         return result['data']
@@ -281,6 +281,14 @@ class Companion:
         active = self.data['records'].get(self.data.get('active'))
         if command and enabled and (not active or active['phase'] in ('healthy', 'recovered', 'failed', 'unknown')):
             self.accept(command, info)
+        try:
+            from .window_runtime import WindowRuntime
+            if not hasattr(self, 'window_runtime'):
+                self.window_runtime = WindowRuntime(self)
+            self.window_runtime.step()
+        except Exception:
+            # Optional window setup cannot stop the existing recovery lane.
+            pass
 
 
 def main():

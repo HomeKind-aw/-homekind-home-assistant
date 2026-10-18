@@ -1,3 +1,9 @@
+# 0.19.0
+
+- Activate the optional metadata-only voice and typed light workers; resident consent and commissioned local Assist setup remain required.
+- Package Maintenance Companion0.2 with confirmed household update windows, fixed Core/OS updates, encrypted full backup, durable single-use dispatch and version-based recovery. Additional local system-update commissioning defaults off.
+- Preserve connector pairing, selections, settings and opt-out through upgrades. Architecture and physical release checks are recorded separately.
+
 # 0.18.0 — grouped-light release candidate, 18 October 2026
 
 - Add an optional negotiated, one-use coordinated light lane. Check every locally selected member before one Home Assistant light action and keep partial or uncertain results distinct from confirmation.
