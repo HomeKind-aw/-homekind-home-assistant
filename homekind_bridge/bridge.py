@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-VERSION = "0.17.0"
+VERSION = "0.18.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -626,6 +626,14 @@ class Connector:
             except Exception:
                 camera_worker = None
                 logging.warning("Live camera viewing could not start; home readings continue.")
+        group_worker = None
+        if not self.read_only:
+            try:
+                from light_group_adapter import LightGroupWorker
+                group_worker = LightGroupWorker(self)
+                group_worker.start()
+            except Exception:
+                logging.warning("Coordinated light control could not start; home readings and existing controls continue.")
         worker = None
         if not self.read_only:
             worker = threading.Thread(target=self.command_loop, args=(on_status,), name="homekind-commands", daemon=True)
@@ -665,6 +673,8 @@ class Connector:
                 camera_worker.join(timeout=2)
             if worker:
                 worker.join(timeout=30)
+            if group_worker:
+                group_worker.join(timeout=30)
 
 
 def atomic_json(path, data):
