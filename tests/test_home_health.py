@@ -81,7 +81,13 @@ class NativeHealthTests(unittest.TestCase):
         clock=[NOW]
         with tempfile.TemporaryDirectory() as d:
             m=self.manager(d,clock=lambda:clock[0]);p=m.preview(report());m.commit({'preview_id':p['preview_id'],'publish_to_ha':True});clock[0]+=7*86400;m.refresh()
-            self.assertTrue(all(not p['readings'] for p in m.store['profiles'].values()));self.assertTrue(all(s['state']=='unavailable' for _,s in self.published[-3:]));self.assertNotIn('1200',m.file.read_text());self.assertNotIn('420',m.file.read_text())
+            self.assertTrue(all(not p['readings'] for p in m.store['profiles'].values()))
+            self.assertTrue(all(s['state']=='unavailable' for _,s in self.published[-3:]))
+            # Random profile identifiers can contain the same digits as an old
+            # reading. Inspect persisted data fields rather than unrelated IDs.
+            saved=json.loads(m.file.read_text())
+            self.assertTrue(saved['profiles'])
+            self.assertTrue(all(p['readings']=={} for p in saved['profiles'].values()))
 
     def test_removal_cleanup_survives_ha_outage_and_restart(self):
         with tempfile.TemporaryDirectory() as d:

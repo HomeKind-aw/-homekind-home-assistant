@@ -1,4 +1,11 @@
-# 0.17.0 — 17 October 2026
+# 0.18.0 — grouped-light release candidate, 18 October 2026
+
+- Add an optional negotiated, one-use coordinated light lane. Check every locally selected member before one Home Assistant light action and keep partial or uncertain results distinct from confirmation.
+- Persist intent and scoped receipts before authorisation; lost responses and restarts cannot repeat physical dispatch. Existing readings, individual controls and settings continue if this optional backend is unavailable.
+- Retain the same app slug, data directory, pairing, local selection, settings revision and opt-out. No new routine Home Assistant checkbox or privileges.
+- Requires the matched authorised HomeKind group backend and current room permissions. This candidate is not evidence of an installed pilot update, native radio broadcast, physical simultaneity or voice commissioning. The separate voice-light adapter remains unstarted pending the complete voice setup/pipeline release.
+
+## 0.17.0 — 17 October 2026
 
 - Send changed readings promptly without re-uploading every quiet device for each event. Keep a separate ten-second observation heartbeat so quiet readings stay current during busy periods.
 - Reduce the upload burst floor from one second to half a second, within the existing 120 requests/minute bound.
