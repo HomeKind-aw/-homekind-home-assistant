@@ -1,3 +1,9 @@
+# 0.18.1 — maintenance release candidate, 19 October 2026
+
+- Version alignment for the existing 0.18.0 grouped-light connector. No new device features or physical behaviour changes are claimed.
+- Keep the existing slug, /data/homekind, pairing, selected entities, permissions, management opt-out and settings revision unchanged.
+- Requires successful connector software checks and both architecture builds before publication; physical grouped-light behaviour and pilot installation remain separate verification steps.
+
 # 0.18.0 — grouped-light release candidate, 18 October 2026
 
 - Add an optional negotiated, one-use coordinated light lane. Check every locally selected member before one Home Assistant light action and keep partial or uncertain results distinct from confirmation.
