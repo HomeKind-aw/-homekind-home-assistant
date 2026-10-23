@@ -14,7 +14,7 @@ import tempfile
 import threading
 import time
 
-from light_group import PROTOCOL, VOICE_PROTOCOL, GroupRejected, _command, execute_light_group
+from light_group import PROTOCOL, EXTENDED_PROTOCOL, VOICE_PROTOCOL, GroupRejected, _command, execute_light_group, group_action
 
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-light-group"
 VOICE_CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-voice-light"
@@ -22,7 +22,7 @@ MEMBER_RESULTS = {"confirmed", "reported", "unconfirmed", "unknown"}
 
 
 class LightGroupAdapter:
-    protocol = PROTOCOL
+    protocol = EXTENDED_PROTOCOL
     journal_name = "light-group-actions.json"
     lock_name = ".light-group.lock"
 
@@ -64,7 +64,7 @@ class LightGroupAdapter:
             if not isinstance(record, dict) or record.get("stage") not in ("intent", "result", "acked"):
                 raise GroupRejected("Invalid group journal.")
             command = _command(record.get("command"))
-            if command["protocol"] != self.protocol:
+            if command["protocol"] not in ((PROTOCOL, EXTENDED_PROTOCOL) if self.protocol == EXTENDED_PROTOCOL else (self.protocol,)):
                 raise GroupRejected("Unexpected journal protocol.")
             if command["id"] in ids or not isinstance(record.get("bridge_id"), str) or type(record.get("generation")) is not int:
                 raise GroupRejected("Invalid group journal.")
@@ -151,7 +151,7 @@ class LightGroupAdapter:
         if claim is None:
             return {"status": "idle"}
         command = _command(claim)
-        if command["protocol"] != self.protocol or claim.get("status") != "leased" or not bridge.clock() < command["expires_at"] <= bridge.clock() + 31:
+        if command["protocol"] not in ((PROTOCOL, EXTENDED_PROTOCOL) if self.protocol == EXTENDED_PROTOCOL else (self.protocol,)) or claim.get("status") != "leased" or not bridge.clock() < command["expires_at"] <= bridge.clock() + 31:
             raise GroupRejected("Group lease ended.")
         if any(r["command"]["id"] == command["id"] for r in records):
             return {"status": "already-recorded"}
@@ -176,7 +176,8 @@ class LightGroupAdapter:
                     raise GroupRejected("Duplicate local reading.")
                 attrs = state.get("attributes") if isinstance(state.get("attributes"), dict) else {}
                 context = state.get("context") if isinstance(state.get("context"), dict) else {}
-                result[entity] = {"entity_id": entity, "state": state.get("state"), "last_updated": state.get("last_updated"), "context": {"id": context.get("id")}, "attributes": {"assumed_state": attrs.get("assumed_state") is True}}
+                light_attrs = {k: copy.deepcopy(attrs[k]) for k in ("supported_color_modes", "brightness", "rgb_color", "hs_color", "color_mode", "color_temp_kelvin", "min_color_temp_kelvin", "max_color_temp_kelvin") if k in attrs}
+                result[entity] = {"entity_id": entity, "state": state.get("state"), "last_updated": state.get("last_updated"), "context": {"id": context.get("id")}, "attributes": {**light_attrs, "assumed_state": attrs.get("assumed_state") is True}}
             return result
 
         started = time.monotonic()
@@ -191,7 +192,8 @@ class LightGroupAdapter:
             return result
 
         def dispatch(domain, service, parameters):
-            if stopped() or domain != "light" or service != "turn_" + scope["desired"] or parameters != {"entity_id": scope["entities"]} or not all(enabled(e) for e in scope["entities"]):
+            expected_service, expected_fields = group_action(scope)
+            if stopped() or domain != "light" or service != expected_service or parameters != expected_fields or not all(enabled(e) for e in scope["entities"]):
                 raise GroupRejected("Group control changed.")
             if getattr(bridge, 'native_transport', False):
                 before = time.monotonic()

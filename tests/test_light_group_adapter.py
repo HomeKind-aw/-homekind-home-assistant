@@ -36,7 +36,7 @@ class AdapterTests(unittest.TestCase):
     def request(self, url, token, data=None, timeout=12):
         self.calls.append((url, token, copy.deepcopy(data), timeout))
         if url.endswith("group-advertise"):
-            return {"protocol": PROTOCOL, "generation": 2}
+            return {"protocol": data["protocol"], "generation": 2}
         if url.endswith("group-poll"):
             return {"command": copy.deepcopy(self.claim)}
         if url.endswith("group-authorise"):
