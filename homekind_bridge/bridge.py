@@ -19,8 +19,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import copy
+from control_transport import JsonConnections, HACommands, CommandWake, TransportError, TransportDenied, NotConnected
 
-VERSION = "0.19.0"
+VERSION = "0.20.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -38,24 +40,15 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise BridgeError("Unexpected redirect; request stopped.")
 
+_connections = JsonConnections()
+
 def request_json(url, token, data=None, timeout=12):
-    payload = None if data is None else json.dumps(data, separators=(",", ":")).encode()
-    request = urllib.request.Request(url, data=payload, headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
-    opener = urllib.request.build_opener(NoRedirect(), *( [] if url.startswith(CLOUD_URL + "/") else [urllib.request.ProxyHandler({})] ))
     try:
-        with opener.open(request, timeout=timeout) as response:
-            raw = response.read(2_000_001)
-            if len(raw) > 2_000_000:
-                raise BridgeError("Response is too large.")
-            return json.loads(raw)
-    except urllib.error.HTTPError as error:
-        if error.code in (401, 403):
-            raise AccessEnded("Connector access ended. Check pairing or the local Home Assistant account.") from None
-        raise BridgeError("HTTP " + str(error.code)) from None
-    except (urllib.error.URLError, TimeoutError, OSError):
-        raise BridgeError("Connection unavailable.") from None
-    except (json.JSONDecodeError, UnicodeError):
-        raise BridgeError("Response could not be read.") from None
+        return _connections.request(url, token, data, timeout)
+    except TransportDenied:
+        raise AccessEnded("Connector access ended. Check pairing or the local Home Assistant account.") from None
+    except TransportError as error:
+        raise BridgeError(str(error)) from None
 
 HEALTH_UNITS = {
     "health_steps": {"steps", "step", ""}, "health_sleep": {"min", "minutes", "h", "hours", "s"},
@@ -258,6 +251,11 @@ def pending_key(reading):
 class Connector:
     def __init__(self, options, data_dir, request=request_json, sleeper=time.sleep, clock=time.time):
         self.options, self.request, self.sleep, self.clock = options, request, sleeper, clock
+        self.native_transport = request is request_json
+        self.cloud_root = CLOUD_URL
+        self.control_socket = None
+        self.command_wake = None
+        self.collect_supported = None
         self.directory = Path(data_dir)
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.directory, 0o700)
@@ -282,6 +280,7 @@ class Connector:
         self.pending = {}
         self.dropped = 0
         self.lock = threading.RLock()
+        self.state_changed = threading.Condition(self.lock)
         self.wake = threading.Event()
         self.ready = threading.Event()
         self.halt = threading.Event()
@@ -342,6 +341,44 @@ class Connector:
     def cloud(self, operation, data=None):
         return self.request(CLOUD_URL + "/" + operation, self.credentials["token"], {"bridge_id": self.credentials["bridge_id"], **(data or {})})
 
+    def collect(self, lane, limit):
+        if self.native_transport and self.collect_supported is not False:
+            try:
+                answer = self.cloud("collect", {"lane": lane, "limit": max(1, min(3, limit))})
+                if not isinstance(answer, dict) or not isinstance(answer.get("commands"), list):
+                    raise BridgeError("Invalid command collection response.")
+                self.collect_supported = True
+                return answer["commands"]
+            except BridgeError as error:
+                if isinstance(error, AccessEnded) or str(error) not in ("HTTP 400", "HTTP 404"):
+                    raise
+                self.collect_supported = False
+        # Compatibility only. The old endpoint leases at most three requests.
+        return self.cloud("poll" if lane == "device" else "media-poll").get("commands", [])
+
+    def wait_commands(self, lane, timeout=None):
+        if self.command_wake:
+            self.command_wake.wait(lane, timeout)
+        else:
+            self.halt.wait(.5 if timeout is None else timeout)
+
+    def cached_states(self, entities):
+        if not self.native_transport or not self.stream_connected:
+            return None
+        with self.lock:
+            if not all(entity in self.current for entity in entities):
+                return None
+            return {entity: copy.deepcopy(self.current[entity]) for entity in entities}
+
+    def timing(self, lane, claim, values):
+        if not self.native_transport or self.stopping():
+            return
+        try:
+            self.cloud("timing", {"lane": lane, "command_id": claim["id"], "lease_id": claim["lease_id"],
+                                  "timings": {key: min(120000, max(0, round(value))) for key, value in values.items()}})
+        except BridgeError:
+            pass  # Diagnostics cannot change command outcome or replay an action.
+
     def enrich(self, state):
         if not isinstance(state, dict) or not isinstance(state.get("attributes", {}), dict):
             return state
@@ -357,8 +394,20 @@ class Connector:
                 return {**state, "attributes": {**state.get("attributes", {}), "temperature_unit": self.temperature_unit}}
         return state
 
-    def ha(self, path, data=None):
-        result = self.request(self.ha_url + "/" + path, self.ha_token, data)
+    def ha(self, path, data=None, timeout=12):
+        cached = self.cached_states([path[7:]]) if path.startswith("states/") and data is None else None
+        if cached is not None:
+            return self.enrich(cached[path[7:]])
+        if data is not None and self.control_socket and re.fullmatch(r"services/(light|switch|cover|fan|climate|media_player)/[a-z_]+", path):
+            _, domain, service = path.split("/")
+            try:
+                return self.control_socket.call(domain, service, data, timeout=min(timeout, 3))
+            except NotConnected:
+                pass  # No send happened; choosing HTTP is safe.
+            except TransportError:
+                raise BridgeError("Home Assistant action outcome is uncertain.") from None
+        result = (self.request(self.ha_url + "/" + path, self.ha_token, data, timeout=timeout)
+                  if self.native_transport else self.request(self.ha_url + "/" + path, self.ha_token, data))
         return [self.enrich(s) for s in result] if path == "states" and isinstance(result, list) else self.enrich(result) if path.startswith("states/") else result
 
     def sync(self):
@@ -394,6 +443,8 @@ class Connector:
         command = None
         sent = False
         result, observed = "failed", {}
+        started = time.monotonic()
+        times = {}
         try:
             entity = claim["entity_id"]
             if not ENTITY.fullmatch(entity) or entity.split(".")[0] not in ("light", "switch", "cover", "fan", "climate"):
@@ -403,7 +454,10 @@ class Connector:
                 raise BridgeError("Device is unavailable.")
             if self.stopping():
                 return
+            prepared = time.monotonic()
             command = self.cloud("authorize", {"command_id": claim["id"], "lease_id": claim["lease_id"]})
+            times["prepare_ms"] = (prepared-started)*1000
+            times["authorize_ms"] = (time.monotonic()-prepared)*1000
             if command["entity_id"] != entity:
                 raise BridgeError("Control target changed.")
             try:
@@ -435,7 +489,10 @@ class Connector:
                 result, observed = "reported", observation(before)
             else:
                 sent = True
+                dispatch_start = time.monotonic()
                 self.ha("services/" + domain + "/" + service, {"entity_id": entity, **parameters})
+                times["ha_dispatch_ms"] = (time.monotonic()-dispatch_start)*1000
+                confirm_start = time.monotonic()
                 result = "unconfirmed"
                 for _ in range(10):
                     if self.stopping():
@@ -447,7 +504,12 @@ class Connector:
                         result = "confirmed" if changed and not observed["assumed_state"] else "reported"
                         self.accept_state(after)
                         break
-                    self.sleep(0.2)
+                    if self.native_transport:
+                        with self.state_changed:
+                            self.state_changed.wait(.2)
+                    else:
+                        self.sleep(.2)
+                times["ha_confirmation_ms"] = (time.monotonic()-confirm_start)*1000
         except AccessEnded as error:
             self.failure = error
             self.halt.set()
@@ -458,6 +520,8 @@ class Connector:
         # Never retry a service call after a transport failure or lost acknowledgement.
         if command is not None and not self.stopping():
             self.cloud("ack", {"command_id": claim["id"], "lease_id": claim["lease_id"], "status": result, "observation": observed})
+            times["connector_total_ms"] = (time.monotonic()-started)*1000
+            self.timing("device", claim, times)
 
     def step(self):
         if self.clock() >= self.next_sync:
@@ -489,6 +553,7 @@ class Connector:
             if previous and utc_timestamp(previous.get("last_updated")) > utc_timestamp(state.get("last_updated")):
                 return
             self.current[entity] = {**state, "attributes": dict(state["attributes"])}
+            self.state_changed.notify_all()
             if self.media_worker and entity in self.media_worker.selected:
                 self.media_worker.wake.set()
             if entity.startswith("weather."):
@@ -573,8 +638,9 @@ class Connector:
                 self.wake.set()
 
     def command_loop(self, on_status):
-        # Commands have their own lane: uploads and one slow device cannot block it.
+        # Harvest completed slots independently; never wait for a whole batch.
         delay = 0.5
+        jobs = {}
         with ThreadPoolExecutor(max_workers=3, thread_name_prefix="homekind-command") as pool:
             while not self.stopping():
                 if not self.ready.wait(0.1):
@@ -582,12 +648,21 @@ class Connector:
                 if self.stopping():
                     return
                 try:
-                    claims = self.cloud("poll")["commands"]
+                    for ident, job in list(jobs.items()):
+                        if job.done():
+                            del jobs[ident]
+                            job.result()
+                    available = 3-len(jobs)
+                    # Old backends lease three: collect only when all slots are free.
+                    if not available or self.collect_supported is False and jobs:
+                        self.wait_commands("device", .05)
+                        continue
+                    claims = self.collect("device", available)
                     if self.stopping():
                         return
-                    jobs = [pool.submit(self.execute, claim) for claim in claims[:3]]
-                    for job in jobs:
-                        job.result()
+                    for claim in claims[:available]:
+                        if claim["id"] not in jobs:
+                            jobs[claim["id"]] = pool.submit(self.execute, claim)
                     delay = 0.5
                 except AccessEnded as error:
                     self.failure = error
@@ -597,7 +672,10 @@ class Connector:
                 except BridgeError:
                     logging.warning("HomeKind command connection unavailable; waiting to reconnect.")
                     delay = min(max(2, delay * 2), 30)
-                self.halt.wait(delay)
+                if delay > .5:
+                    self.halt.wait(delay)
+                else:
+                    self.wait_commands("device", .05 if claims else None)
 
     def run(self, stop_event=None, on_status=lambda event: None):
         self.external_stop = stop_event or threading.Event()
@@ -609,6 +687,11 @@ class Connector:
         on_status("paired")
         self.stream = HAStream(self)
         self.stream.start()
+        if self.native_transport:
+            self.control_socket = HACommands(self)
+            self.control_socket.start()
+            self.command_wake = CommandWake(self)
+            self.command_wake.start()
         media_worker = None
         try:
             from media_control import MediaControls
@@ -666,6 +749,12 @@ class Connector:
             self.halt.set()
             self.wake.set()
             self.stream.stop()
+            if self.command_wake:
+                self.command_wake.stop()
+                self.command_wake.join(timeout=2)
+            if self.control_socket:
+                self.control_socket.stop()
+                self.control_socket.join(timeout=2)
             if media_worker:
                 media_worker.join(timeout=2)
             if camera_worker:

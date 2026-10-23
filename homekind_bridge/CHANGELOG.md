@@ -1,3 +1,12 @@
+# 0.20.0 — control response, 23 October 2026
+
+- Reuse outbound HTTP connections and add a separate persistent Home Assistant action socket. Never resend an action after an uncertain socket or HTTP response.
+- Collect only available command slots and let independent device/media requests progress without waiting for an earlier batch to finish.
+- Receive private, paired-connector wake-up hints as soon as durable commands are queued. Keep recovery polling and existing final permission checks; no credentials or command parameters travel in hints.
+- Prefer the connected Home Assistant state stream for local checks, preserve assumed-state distinctions, and report bounded numeric stage timings.
+- Keep existing pairing, selected devices, permissions, management opt-out, feature choices, app slug and data directory. Older backends retain legacy polling.
+- Requires the matched control-response backend. Publishing does not install this update on a home or establish physical response timing.
+
 # 0.19.0 — integration discovery, 23 October 2026
 
 - Project Home Assistant’s pending integration discoveries into the authorised, expiring device setup session in HomeKind.
