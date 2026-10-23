@@ -227,3 +227,32 @@ class OnboardingTests(unittest.TestCase):
         for duration in (91, -1, True, '90'):
             with self.assertRaises(BridgeError):
                 local.pair({'kind': 'zha', 'key': 'zha'}, duration)
+
+
+class IntegrationDiscoveryTests(unittest.TestCase):
+    def test_read_only_discovery_projection_is_bounded_and_drops_forms_and_addresses(self):
+        flow = {"handler": "sonos", "flow_id": "local-discovery-id", "context": {"source": "ssdp", "unique_id": "private-address", "title_placeholders": {"name": "Living room speaker"}}, "data_schema": {"password": "never-send"}, "url": "http://private.invalid"}
+        rows = ob.discovery_metadata([flow, flow, {**flow, "context": {"source": "reauth"}}, {**flow, "handler": "bad/handler"}])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["title"], "Living room speaker")
+        self.assertEqual(set(rows[0]), {"key", "title", "integration"})
+        self.assertNotIn("private-address", json.dumps(rows))
+        self.assertNotIn("never-send", json.dumps(rows))
+        self.assertEqual(len(ob.discovery_metadata([{**flow, "flow_id": str(i)} for i in range(300)])), 100)
+        with self.assertRaises(BridgeError):
+            ob.discovery_metadata({"untrusted": "not a list"})
+
+    def test_optional_discovery_only_uses_fixed_read_command_and_failure_is_local(self):
+        from contextlib import nullcontext
+        local = ob.LocalHome(SimpleNamespace())
+        calls = []
+        local.socket = lambda: nullcontext(object())
+        local.auth = lambda ws: None
+        local.query = lambda ws, ident, kind: calls.append(kind) or []
+        local.discover()
+        self.assertEqual(calls, ["config_entries/flow/progress"])
+        self.assertTrue(local.discovery_supported)
+        local.query = lambda *a: (_ for _ in ()).throw(BridgeError("unsupported"))
+        local.discover()
+        self.assertFalse(local.discovery_supported)
+        self.assertEqual(local.discoveries, [])

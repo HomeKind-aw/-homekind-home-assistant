@@ -78,6 +78,35 @@ def z2m_route(info):
     return None
 
 
+def discovery_metadata(flows):
+    """A read-only display projection. Never send a config form or network address."""
+    if not isinstance(flows, list) or len(flows) > 1000:
+        raise BridgeError("Home Assistant discovery is unavailable.")
+    sources = {"bluetooth", "dhcp", "discovery", "esphome", "hardware", "hassio", "homekit", "integration_discovery", "mqtt", "ssdp", "unignore", "usb", "zeroconf"}
+    result = []
+    seen = set()
+    for flow in flows:
+        if not isinstance(flow, dict):
+            continue
+        context = flow.get("context")
+        if not isinstance(context, dict) or context.get("source") not in sources:
+            continue
+        handler, ident = flow.get("handler"), flow.get("flow_id")
+        if not isinstance(handler, str) or not re.fullmatch(r"[a-z0-9_]{1,60}", handler) or not isinstance(ident, str) or not 1 <= len(ident) <= 100:
+            continue
+        title = context.get("title_placeholders", {}).get("name") if isinstance(context.get("title_placeholders"), dict) else None
+        if not isinstance(title, str) or not title.strip() or "://" in title:
+            title = handler.replace("_", " ").title()
+        title = " ".join(title.split())[:80]
+        key = hashlib.sha256((handler + "\0" + ident).encode()).hexdigest()
+        if key not in seen:
+            result.append({"key": key, "title": title, "integration": handler})
+            seen.add(key)
+        if len(result) >= 100:
+            break
+    return result
+
+
 class LocalHome:
     def __init__(self, connector, connect=None):
         self.c = connector
@@ -87,6 +116,8 @@ class LocalHome:
         self.metadata = {}
         self.routes = {}
         self.excluded_devices = set()
+        self.discoveries = []
+        self.discovery_supported = False
 
     def socket(self):
         url = "ws://supervisor/core/websocket" if self.c.supervisor else self.c.ha_url.replace("http://", "ws://", 1).replace("https://", "wss://", 1) + "/websocket"
@@ -151,6 +182,20 @@ class LocalHome:
             # Plain device discovery and a known ZHA route can still work.
             pass
         return [{k: route[k] for k in ("key", "name", "kind")} for route in self.routes.values()]
+
+    def discover(self):
+        # This fixed, read-only command lists HA discoveries awaiting integration
+        # setup. No cloud directive can initialise, configure or ignore a flow.
+        self.discoveries = []
+        self.discovery_supported = False
+        try:
+            with self.socket() as ws:
+                self.auth(ws)
+                self.discoveries = discovery_metadata(self.query(ws, 1, "config_entries/flow/progress"))
+                self.discovery_supported = True
+        except Exception:
+            # Keep entity discovery, existing readings and controls working.
+            pass
 
     def pair(self, route, duration):
         if type(duration) is not int or not 0 <= duration <= 90:
@@ -320,6 +365,8 @@ class DeviceOnboarding:
             try:
                 if self.clock() >= self.inspect_at:
                     self.home.inspect()
+                    if active and hasattr(self.home, "discover"):
+                        self.home.discover()
                     self.inspect_at = self.clock() + (12 if active else 60)
                 adapters = [{k: r[k] for k in ("key", "name", "kind")} for r in self.home.routes.values()]
                 states = self.client.ha("states")
@@ -338,6 +385,7 @@ class DeviceOnboarding:
         if receipt and receipt.get("new_management_id") != options.get("management_id"):
             receipt = None
         report = {"bridge_id": self.client.credentials["bridge_id"], "protocol": PROTOCOL, "version": VERSION, "management_id": options.get("management_id", ""), "available": self.available,
+                  "discovery_supported": bool(active and getattr(self.home, "discovery_supported", False)), "discoveries": getattr(self.home, "discoveries", []) if active else [],
                   "adapters": adapters, "session_id": self.saved.get("session_id"), "candidates": self.rows if active else [], "pair_confirmed": bool(self.saved.get("pair_confirmed") and not self.saved.get("pair_closed")), "error": self.error, "receipt": receipt}
         response = self.manager.request(CLOUD_URL + "/onboarding", self.client.credentials["token"], report, timeout=5)
         if not isinstance(response, dict):

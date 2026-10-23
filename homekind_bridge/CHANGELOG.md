@@ -1,3 +1,11 @@
+# 0.19.0 — integration discovery, 23 October 2026
+
+- Project Home Assistant’s pending integration discoveries into the authorised, expiring device setup session in HomeKind.
+- Send only an opaque discovery key, display name and integration name. No forms, addresses, credentials or source readings are included.
+- Use the fixed read-only `config_entries/flow/progress` command. Finish initial integration and account setup in Home Assistant; never configure a discovery from a cloud directive.
+- Preserve the existing pairing, selected entities, permissions, management opt-out, feature choices and settings revision. Older HomeKind backends and optional discovery failures leave existing readings and controls working.
+- Local software and permission checks are separate from physical commissioning. Publishing this version does not install it on a home.
+
 # 0.18.1 — maintenance release candidate, 19 October 2026
 
 - Version alignment for the existing 0.18.0 grouped-light connector. No new device features or physical behaviour changes are claimed.
