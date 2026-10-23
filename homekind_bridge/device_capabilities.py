@@ -1,5 +1,7 @@
 """Finite HA device capabilities. No user-supplied service, URL or arbitrary attributes."""
 import math
+import re
+import colorsys
 
 SENSOR_CLASSES = set('absolute_humidity apparent_power aqi atmospheric_pressure battery blood_glucose_concentration carbon_dioxide carbon_monoxide conductivity current data_rate data_size distance duration energy energy_distance energy_storage frequency gas humidity illuminance irradiance moisture monetary nitrogen_dioxide nitrogen_monoxide nitrous_oxide ozone ph pm1 pm4 pm10 pm25 power power_factor precipitation precipitation_intensity pressure reactive_energy reactive_power signal_strength sound_pressure speed sulphur_dioxide temperature volatile_organic_compounds volatile_organic_compounds_parts voltage volume volume_flow_rate volume_storage water weight wind_direction wind_speed'.split())
 BINARY_CLASSES = set('battery battery_charging carbon_monoxide cold connectivity door garage_door gas heat light lock moisture motion moving occupancy opening plug power presence problem running safety smoke sound tamper update vibration window'.split())
@@ -41,6 +43,12 @@ def capabilities(state):
         actions += ['on', 'off']
         if domain == 'light' and isinstance(attrs.get('supported_color_modes'), list) and any(mode in ('brightness', 'color_temp', 'hs', 'xy', 'rgb', 'rgbw', 'rgbww', 'white') for mode in attrs['supported_color_modes']):
             actions.append('brightness')
+            if any(mode in ('hs', 'xy', 'rgb', 'rgbw', 'rgbww') for mode in attrs['supported_color_modes']):
+                actions.append('colour')
+            low, high = attrs.get('min_color_temp_kelvin'), attrs.get('max_color_temp_kelvin')
+            if 'color_temp' in attrs['supported_color_modes'] and number(low, 1000, 40000) and number(high, 1000, 40000) and math.ceil(low) < math.floor(high):
+                actions.append('colour_temperature')
+                result.update(colour_temperature_min=math.ceil(low), colour_temperature_max=math.floor(high))
     elif domain == 'cover' and str(attrs.get('device_class', '')) in COVER_CONTROLS:
         actions += [action for bit, action in ((1, 'open'), (2, 'close'), (8, 'stop'), (4, 'position'), (128, 'tilt')) if flags & bit]
     elif domain == 'fan':
@@ -72,6 +80,15 @@ def attributes(state):
     elif domain == 'light':
         if number(attrs.get('brightness'), 0, 255):
             result['brightness'] = round(attrs['brightness'] / 255 * 100)
+        rgb = attrs.get('rgb_color')
+        hs = attrs.get('hs_color')
+        if attrs.get('color_mode') in ('hs', 'xy', 'rgb', 'rgbw', 'rgbww'):
+            if not (isinstance(rgb, (list, tuple)) and len(rgb) == 3 and all(number(v, 0, 255) for v in rgb)):
+                rgb = [round(v * 255) for v in colorsys.hsv_to_rgb(hs[0] / 360, hs[1] / 100, 1)] if isinstance(hs, (list, tuple)) and len(hs) == 2 and number(hs[0], 0, 360) and number(hs[1], 0, 100) else None
+            if rgb is not None:
+                result['colour'] = '#' + ''.join(f'{round(v):02x}' for v in rgb)
+        if attrs.get('color_mode') == 'color_temp' and number(attrs.get('color_temp_kelvin'), 1000, 40000):
+            result['colour_temperature'] = round(attrs['color_temp_kelvin'])
     elif domain == 'fan':
         ranges = {'percentage': ('percentage', 0, 100)}
         if type(attrs.get('oscillating')) is bool:
@@ -97,7 +114,7 @@ def action_request(state, action, parameters=None):
     caps = capabilities(state)
     if not isinstance(params, dict) or action not in caps['actions']:
         raise ValueError('This device does not support the requested action.')
-    need_value = action in ('brightness', 'position', 'tilt', 'percentage', 'oscillate', 'hvac', 'temperature')
+    need_value = action in ('brightness', 'colour', 'colour_temperature', 'position', 'tilt', 'percentage', 'oscillate', 'hvac', 'temperature')
     if set(params) != ({'value'} if need_value else set()):
         raise ValueError('Choose the supported device value.')
     value = params.get('value')
@@ -110,6 +127,16 @@ def action_request(state, action, parameters=None):
             raise ValueError('Choose a speed supported by this fan.')
         services.update(brightness='turn_on', position='set_cover_position', tilt='set_cover_tilt_position', percentage='set_percentage')
         fields[{'brightness': 'brightness_pct', 'position': 'position', 'tilt': 'tilt_position', 'percentage': 'percentage'}[action]] = value
+    elif action == 'colour':
+        if not isinstance(value, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', value):
+            raise ValueError('Choose a supported light colour.')
+        services[action] = 'turn_on'
+        fields['rgb_color'] = [int(value[i:i + 2], 16) for i in (1, 3, 5)]
+    elif action == 'colour_temperature':
+        if not number(value, caps['colour_temperature_min'], caps['colour_temperature_max']) or value != round(value):
+            raise ValueError('Choose a white tone within this light’s range.')
+        services[action] = 'turn_on'
+        fields['color_temp_kelvin'] = value
     elif action == 'oscillate':
         if type(value) is not bool:
             raise ValueError('Choose oscillation on or off.')
@@ -145,6 +172,17 @@ def action_matches(state, action, parameters=None):
         return value == params.get('value')
     if action == 'stop':
         return False  # HA has no persistent "stop succeeded" state.
+    if action == 'brightness' and params.get('value') == 0:
+        return value == 'off'
+    if action in ('brightness', 'colour', 'colour_temperature') and value != 'on':
+        return False
+    if action == 'colour':
+        actual, target = attrs.get('colour'), params.get('value')
+        if not all(isinstance(v, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', v) for v in (actual, target)):
+            return False
+        return all(abs(int(actual[i:i + 2], 16) - int(target[i:i + 2], 16)) <= 8 for i in (1, 3, 5))
     target = params.get('value')
     actual = attrs.get('oscillating' if action == 'oscillate' else action)
+    if action == 'colour_temperature':
+        return number(actual, 1000, 40000) and number(target, 1000, 40000) and abs(actual - target) <= 50
     return type(actual) is bool and type(target) is bool and actual == target if action == 'oscillate' else number(actual, -100, 200) and number(target, -100, 200) and abs(actual - target) <= (1 if action == 'brightness' else 0.05)

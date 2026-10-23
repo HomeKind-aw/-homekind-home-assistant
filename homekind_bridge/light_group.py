@@ -7,8 +7,10 @@ import math
 import re
 import time
 import uuid
+from device_capabilities import action_request, action_matches
 
 PROTOCOL = "homekind.light-group.v1"
+EXTENDED_PROTOCOL = "homekind.light-group.v2"
 VOICE_PROTOCOL = "homekind.voice-light.v1"
 LIGHT = re.compile(r"^light\.[a-z0-9_]{1,150}$")
 
@@ -18,7 +20,7 @@ class GroupRejected(ValueError):
 
 
 def _command(value):
-    if not isinstance(value, dict) or value.get("protocol") not in (PROTOCOL, VOICE_PROTOCOL):
+    if not isinstance(value, dict) or value.get("protocol") not in (PROTOCOL, EXTENDED_PROTOCOL, VOICE_PROTOCOL):
         raise GroupRejected("Unsupported group protocol.")
     voice = value["protocol"] == VOICE_PROTOCOL
     identity = "binding_id" if voice else "group_id"
@@ -30,13 +32,34 @@ def _command(value):
     entities = value.get("entities")
     if not isinstance(entities, list) or not (1 if voice else 2) <= len(entities) <= (20 if voice else 32) or any(not isinstance(e, str) or not LIGHT.fullmatch(e) for e in entities) or len(set(entities)) != len(entities):
         raise GroupRejected("Invalid light group.")
-    if type(value.get("revision")) is not int or value["revision"] < 1 or value.get("desired") not in (("on",) if voice else ("on", "off")):
+    extended = value["protocol"] == EXTENDED_PROTOCOL
+    if type(value.get("revision")) is not int or value["revision"] < 1 or value.get("desired") not in (("on",) if voice else ("on", "off", "brightness", "colour", "colour_temperature") if extended else ("on", "off")):
         raise GroupRejected("Invalid group action.")
+    parameters = value.get("parameters", {})
+    action = value["desired"]
+    if not isinstance(parameters, dict) or set(parameters) != ({"value"} if action not in ("on", "off") else set()):
+        raise GroupRejected("Invalid group setting.")
+    setting = parameters.get("value")
+    if action == "brightness" and (type(setting) is not int or not 0 <= setting <= 100) or action == "colour_temperature" and (type(setting) is not int or not 1000 <= setting <= 40000) or action == "colour" and (not isinstance(setting, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", setting)):
+        raise GroupRejected("Invalid group setting.")
     expiry = value.get("expires_at")
     if type(expiry) not in (float, int) or not math.isfinite(expiry):
         raise GroupRejected("Invalid group expiry.")
     # Copy the complete scope so a callback cannot silently mutate its targets.
-    return {key: value[key] for key in ("protocol", "id", "lease_id", "household_id", identity, "revision", "desired", "expires_at")} | {"entities": tuple(entities)}
+    return {key: value[key] for key in ("protocol", "id", "lease_id", "household_id", identity, "revision", "desired", "expires_at")} | {"entities": tuple(entities)} | ({"parameters": dict(parameters)} if extended else {})
+
+
+def group_action(command):
+    """Fixed action mapping after strict envelope validation; never arbitrary HA data."""
+    desired, params = command["desired"], command.get("parameters", {})
+    fields = {"entity_id": list(command["entities"])}
+    if desired == "brightness":
+        fields["brightness_pct"] = params["value"]
+    elif desired == "colour":
+        fields["rgb_color"] = [int(params["value"][i:i + 2], 16) for i in (1, 3, 5)]
+    elif desired == "colour_temperature":
+        fields["color_temp_kelvin"] = params["value"]
+    return "turn_off" if desired == "off" else "turn_on", fields
 
 
 def execute_light_group(claim, *, read_states, locally_enabled, authorise,
@@ -53,6 +76,7 @@ def execute_light_group(claim, *, read_states, locally_enabled, authorise,
     command = _command(claim)
     entities = command["entities"]
     desired = command["desired"]
+    parameters = command.get("parameters", {})
     started = clock()
     deadline = started + 3
 
@@ -70,7 +94,13 @@ def execute_light_group(claim, *, read_states, locally_enabled, authorise,
         return {entity: values.get(entity) for entity in entities}
 
     def ready(values):
-        return all(isinstance(values[e], dict) and values[e].get("entity_id") == e and values[e].get("state") in ("on", "off") for e in entities)
+        if not all(isinstance(values[e], dict) and values[e].get("entity_id") == e and values[e].get("state") in ("on", "off") for e in entities):
+            return False
+        try:
+            service, fields = group_action(command)
+            return all(action_request(values[e], desired, parameters) == ("light", service, {k: v for k, v in fields.items() if k != "entity_id"}) for e in entities)
+        except (ValueError, TypeError, KeyError):
+            return False
 
     # Bounded attempts also protect against a frozen/faulty monotonic clock.
     for _ in range(16):
@@ -91,11 +121,12 @@ def execute_light_group(claim, *, read_states, locally_enabled, authorise,
     if not ready(before):
         raise GroupRejected("The whole group is not ready.")
     live()
-    if all(before[e]["state"] == desired for e in entities):
+    if all(action_matches(before[e], desired, parameters) for e in entities):
         return {"status": "reported", "dispatched": False, "members": {e: "reported" for e in entities}}
     try:
         # Fixed service, exact authorised entity list. No member-by-member calls.
-        dispatch("light", "turn_" + desired, {"entity_id": list(entities)})
+        service, fields = group_action(command)
+        dispatch("light", service, fields)
     except Exception:
         # The action may have happened. Never retry physical dispatch here.
         return {"status": "unknown", "dispatched": True, "members": {e: "unknown" for e in entities}}
@@ -107,7 +138,7 @@ def execute_light_group(claim, *, read_states, locally_enabled, authorise,
             break
         for entity in entities:
             state = after[entity]
-            if not isinstance(state, dict) or state.get("entity_id") != entity or state.get("state") != desired:
+            if not isinstance(state, dict) or state.get("entity_id") != entity or not action_matches(state, desired, parameters):
                 evidence[entity] = "unconfirmed"
                 continue
             context = state.get("context") if isinstance(state.get("context"), dict) else {}

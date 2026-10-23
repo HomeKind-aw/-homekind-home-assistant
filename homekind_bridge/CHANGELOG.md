@@ -1,3 +1,10 @@
+# 0.21.0 — shared light controls, 23 October 2026
+
+- Report bounded colour and white-temperature capabilities and current settings alongside brightness.
+- Negotiate grouped-light protocol v2 for shared brightness, colour and white-tone adjustments. Recheck every member and send one exact Home Assistant light action.
+- Preserve legacy group on/off, v1 journal receipts, pairing, selections, permissions, local opt-out and settings. Never replay an uncertain action.
+- Requires the matched shared-light-controls app/backend; physical checks remain separate.
+
 # 0.20.0 — control response, 23 October 2026
 
 - Reuse outbound HTTP connections and add a separate persistent Home Assistant action socket. Never resend an action after an uncertain socket or HTTP response.
