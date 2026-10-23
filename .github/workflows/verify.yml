@@ -44,7 +44,7 @@ jobs:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
           docker buildx build --platform "$TARGET_PLATFORM" --load \
-            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.18.1 \
+            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.19.0 \
             --tag homekind-connector:verify ./homekind_bridge
       - name: Verify runtime and run software checks in the built container
         env:
