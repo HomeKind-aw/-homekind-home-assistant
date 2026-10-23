@@ -4,6 +4,7 @@ import logging
 import math
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import time
 from radio_directory import RadioDirectory
 
@@ -108,8 +109,11 @@ class MediaControls(threading.Thread):
 
     def execute(self, claim):
         c = self.connector
+        started = time.monotonic()
+        times = {}
         token = {"command_id": claim["id"], "lease_id": claim["lease_id"]}
         authorised = c.cloud("media-authorize", token)
+        times["authorize_ms"] = (time.monotonic()-started)*1000
         entity, action, value = authorised.get("entity_id"), authorised.get("action"), authorised.get("value")
         if not authorised.get("authorised") or entity not in self.selected or entity not in c.allowlist or c.stopping():
             return
@@ -137,7 +141,9 @@ class MediaControls(threading.Thread):
                     data.update(target)
         if service in ("media_play", "media_pause", "volume_set", "play_media", "select_source"):
             try:
+                dispatch_start = time.monotonic()
                 c.ha("services/media_player/" + service, data)
+                times["ha_dispatch_ms"] = (time.monotonic()-dispatch_start)*1000
                 status = "reported"
                 # Confirm only a fresh read from HA, never an optimistic state.
                 observed = c.ha("states/" + entity)
@@ -151,6 +157,8 @@ class MediaControls(threading.Thread):
                 # A timeout can follow an accepted command. It must never be replayed.
                 status = "unknown"
         c.cloud("media-ack", {**token, "status": status})
+        times["connector_total_ms"] = (time.monotonic()-started)*1000
+        c.timing("media", claim, times)
         self.wake.set()
 
     def publish_loop(self):
@@ -211,22 +219,37 @@ class MediaControls(threading.Thread):
         publisher.start()
         browser.start()
         delay = .5
+        jobs = {}
+        pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix='homekind-media-control')
         try:
             while not c.stopping():
                 if not c.ready.wait(.2):
                     continue
                 try:
-                    claims = c.cloud("media-poll").get("commands", [])
-                    for claim in claims[:3]:
+                    for ident, job in list(jobs.items()):
+                        if job.done():
+                            del jobs[ident]
+                            job.result()
+                    available = 3-len(jobs)
+                    if not available or c.collect_supported is False and jobs:
+                        c.wait_commands('media', .05)
+                        continue
+                    claims = c.collect('media', available)
+                    for claim in claims[:available]:
                         if c.stopping():
                             return
-                        self.execute(claim)
+                        if claim['id'] not in jobs:
+                            jobs[claim['id']] = pool.submit(self.execute, claim)
                     delay = .5
                 except Exception:
                     logging.warning("Media controls are waiting for a connection; home readings continue.")
                     delay = min(max(delay * 2, 2), 30)
-                c.halt.wait(delay)
+                if delay > .5:
+                    c.halt.wait(delay)
+                else:
+                    c.wait_commands('media', .05 if claims else None)
         finally:
+            pool.shutdown(wait=True, cancel_futures=True)
             self.wake.set()
             publisher.join(timeout=2)
             browser.join(timeout=2)

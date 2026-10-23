@@ -163,7 +163,8 @@ class LightGroupAdapter:
         def read_states(entities, timeout):
             if stopped():
                 raise GroupRejected("Group control ended.")
-            values = bridge.request(bridge.ha_url + "/states", bridge.ha_token, timeout=min(.5, timeout))
+            cached = bridge.cached_states(entities) if hasattr(bridge, 'cached_states') else None
+            values = list(cached.values()) if cached is not None else bridge.request(bridge.ha_url + "/states", bridge.ha_token, timeout=min(.5, timeout))
             if not isinstance(values, list):
                 raise GroupRejected("Invalid local readings.")
             result = {}
@@ -178,14 +179,26 @@ class LightGroupAdapter:
                 result[entity] = {"entity_id": entity, "state": state.get("state"), "last_updated": state.get("last_updated"), "context": {"id": context.get("id")}, "attributes": {"assumed_state": attrs.get("assumed_state") is True}}
             return result
 
+        started = time.monotonic()
+        times = {}
+
         def authorise(_):
             if stopped():
                 raise GroupRejected("Group control ended.")
-            return self._cloud("authorise", {"command_id": scope["id"], "lease_id": scope["lease_id"]})
+            before = time.monotonic()
+            result = self._cloud("authorise", {"command_id": scope["id"], "lease_id": scope["lease_id"]})
+            times["authorize_ms"] = (time.monotonic()-before)*1000
+            return result
 
         def dispatch(domain, service, parameters):
             if stopped() or domain != "light" or service != "turn_" + scope["desired"] or parameters != {"entity_id": scope["entities"]} or not all(enabled(e) for e in scope["entities"]):
                 raise GroupRejected("Group control changed.")
+            if getattr(bridge, 'native_transport', False):
+                before = time.monotonic()
+                try:
+                    return bridge.ha("services/light/" + service, copy.deepcopy(parameters), timeout=2)
+                finally:
+                    times["ha_dispatch_ms"] = (time.monotonic()-before)*1000
             return bridge.request(bridge.ha_url + "/services/light/" + service, bridge.ha_token, copy.deepcopy(parameters), timeout=2)
 
         try:
@@ -193,6 +206,8 @@ class LightGroupAdapter:
         except Exception:
             result = {"status": "unknown", "members": {e: "unknown" for e in scope["entities"]}}
         record.update(stage="result", members=result["members"])
+        if hasattr(bridge, "timing"):
+            bridge.timing("group", scope, {**times, "connector_total_ms": (time.monotonic()-started)*1000})
         self._save(records)  # On failure retained on-disk intent still forbids replay.
         try:
             receipt(record)
@@ -250,4 +265,7 @@ class LightGroupWorker(threading.Thread):
                 next_advertisement = self.bridge.clock() + 5
                 delay = 5
                 logging.warning("Coordinated light control unavailable; existing home workers continue.")
-            self.bridge.halt.wait(delay)
+            if delay > .5:
+                self.bridge.halt.wait(delay)
+            else:
+                self.bridge.wait_commands('group') if hasattr(self.bridge, 'wait_commands') else self.bridge.halt.wait(delay)
