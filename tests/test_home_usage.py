@@ -1,5 +1,6 @@
 import sys
 import threading
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -64,13 +65,15 @@ class UsageTests(unittest.TestCase):
         thread.join(1)
 
     def test_group_capability_is_renewed_before_the_server_lease_expires(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
         clock = [0]
         advertisements = []
         ready = threading.Event()
         ready.set()
         def wait(_):
             clock[0] += 31
-        bridge = SimpleNamespace(ready=ready, stopping=lambda:clock[0]>=93,
+        bridge = SimpleNamespace(directory=directory.name, ready=ready, stopping=lambda:clock[0]>=93,
                                  clock=lambda:clock[0], wait_commands=wait,
                                  command_wake=SimpleNamespace(healthy=lambda:True))
         worker = LightGroupWorker(bridge)
