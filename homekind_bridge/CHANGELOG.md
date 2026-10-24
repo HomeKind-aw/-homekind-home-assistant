@@ -1,3 +1,10 @@
+# 0.23.0 · 25 October 2026
+
+- Add isolated, read-only system checks every five minutes and during updates.
+- Report Home Assistant and available firmware versions, integration health and missing selected entities without device names, values, network details or credentials.
+- Preserve all existing enrolment, selections, settings, permissions and controls. No additional connector privilege or feature checkbox.
+- Requires the deployed HomeKind system-health endpoint for enhanced monitoring. Physical Green and Zigbee commissioning remains separate.
+
 ## 0.22.1
 
 - Preserve the 30-second group capability renewal required by the existing 90-second server lease, independently of the push channel. Group controls remain available throughout quiet periods.

@@ -1,6 +1,6 @@
 name: HomeKind Maintenance Companion
 description: Installer-enabled, restricted updates and backup recovery for the HomeKind connector.
-version: "0.1.0"
+version: "0.1.1"
 slug: homekind_maintenance
 init: false
 startup: application
