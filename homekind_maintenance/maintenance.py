@@ -8,6 +8,7 @@ import json
 import os
 import re
 import secrets
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -18,6 +19,7 @@ CLOUD = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bri
 VERSION = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
 BACKUP = re.compile(r"[a-z0-9]{8,64}")
 PAIR = re.compile(r"([0-9a-f-]{36})\.([0-9a-f]{64})")
+HEALTH_URL = CLOUD.removesuffix('/homekind-home-bridge') + '/homekind-system-health'
 
 
 class MaintenanceError(Exception):
@@ -283,8 +285,98 @@ class Companion:
             self.accept(command, info)
 
 
+def inventory_component(key, kind, info):
+    def clean(value):
+        return value if isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+() /:-]{0,79}', value) else None
+    installed, latest = clean(info.get('version')), clean(info.get('version_latest'))
+    result = {'key': key, 'kind': kind, 'installed': installed, 'latest': latest,
+            'pending': bool(installed and latest and installed != latest), 'updating': False}
+    if isinstance(info.get('slug'), str) and re.fullmatch(r'[A-Za-z0-9_-]{1,80}', info['slug']):
+        result['product'] = info['slug']
+    return result
+
+
+def backup_projection(info, details):
+    # A partial connector backup is not a full system recovery point.
+    if not isinstance(details, dict) or details.get('type') != 'full' or not details.get('homeassistant') or details.get('homeassistant_exclude_database') is True:
+        return {'last_at': None, 'off_device': None, 'protected': None, 'full': False}
+    locations = details.get('locations')
+    if not isinstance(locations, list):
+        locations = [details['location']] if 'location' in details else []
+    off_device = any(isinstance(x, str) and x not in ('', '.local') for x in locations) if locations else None
+    remote = [x for x in locations if isinstance(x, str) and x not in ('', '.local')]
+    attributes = details.get('location_attributes', {})
+    protected = (all(isinstance(attributes.get(x), dict) and attributes[x].get('protected') is True for x in remote) if remote and isinstance(attributes, dict) and attributes else details.get('protected') if not any(x in (None, '.local') for x in locations) else None)
+    date = details.get('date')
+    return {'last_at': date if isinstance(date, str) and re.fullmatch(r'[0-9T:.+Z-]{10,40}', date) else None,
+            'off_device': off_device, 'protected': protected if type(protected) is bool else None, 'full': True}
+
+
+class InventoryReporter(threading.Thread):
+    """Fixed GET-only Supervisor observations; never an update/restore executor."""
+    def __init__(self, companion):
+        super().__init__(name='homekind-maintenance-inventory', daemon=True)
+        self.companion = companion
+        self.session, self.sequence = str(uuid.uuid4()), 0
+
+    def get(self, path):
+        result = self.companion.call('http://supervisor' + path, self.companion.token, timeout=5)
+        if not isinstance(result, dict) or result.get('result') != 'ok' or not isinstance(result.get('data'), dict):
+            raise MaintenanceError('System inventory could not be verified.')
+        return result['data']
+
+    def snapshot(self):
+        components, complete = [], True
+        for key, kind, path in [('home_assistant_core', 'core', '/core/info'), ('home_assistant_os', 'os', '/os/info'), ('home_assistant_supervisor', 'supervisor', '/supervisor/info')]:
+            try:
+                components.append(inventory_component(key, kind, self.get(path)))
+            except Exception:
+                complete = False
+        try:
+            addons = self.get('/addons').get('addons', [])
+            if not isinstance(addons, list) or len(addons) > 200:
+                raise MaintenanceError('Invalid app inventory.')
+            for addon in addons[:120]:
+                if isinstance(addon, dict) and isinstance(addon.get('slug'), str) and re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', addon['slug']):
+                    components.append(inventory_component('addon_' + hashlib.sha256(addon['slug'].encode()).hexdigest()[:24], 'addon', addon))
+        except Exception:
+            complete = False
+        backup = {'last_at': None, 'off_device': None, 'protected': None, 'full': False}
+        try:
+            info = self.get('/backups/info')
+            backups = info.get('backups', [])
+            if isinstance(backups, list):
+                full = [b for b in backups if isinstance(b, dict) and b.get('type') == 'full' and BACKUP.fullmatch(str(b.get('slug', '')))]
+                if full:
+                    latest = max(full, key=lambda b: str(b.get('date', '')))
+                    backup = backup_projection(info, self.get('/backups/' + latest['slug'] + '/info'))
+        except Exception:
+            pass  # Unverified is never represented as a successful backup.
+        self.sequence += 1
+        return {'schema': 1, 'session': self.session, 'sequence': self.sequence,
+                'observed_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+                'components': components, 'inventory_complete': complete, 'backup': backup}
+
+    def once(self):
+        # Read an atomic credential snapshot. Do not touch the updater's journal.
+        saved = json.loads(self.companion.path.read_text())
+        credential = saved.get('credential', {})
+        if not PAIR.fullmatch(str(credential.get('id', '')) + '.' + str(credential.get('token', ''))):
+            return
+        self.companion.call(HEALTH_URL, credential['token'], {'source': 'companion', 'bridge_id': credential['id'], 'report': self.snapshot()}, timeout=8)
+
+    def run(self):
+        while True:
+            try:
+                self.once()
+            except Exception:
+                pass  # Diagnostics cannot stop the updater or ordinary sensors.
+            time.sleep(300)
+
+
 def main():
     companion = Companion()
+    InventoryReporter(companion).start()
     while True:
         try:
             companion.step()

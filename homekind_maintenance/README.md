@@ -1,4 +1,4 @@
-# HomeKind Maintenance Companion 0.1.0
+# HomeKind Maintenance Companion 0.1.1
 
 Installer task: install this separate app from the same HomeKind repository as
 the HomeKind Home Connector. In HomeKind, open Settings → Home connection health
@@ -31,3 +31,9 @@ and a matching locally recorded pre-update backup from the last seven days.
 Software verification is separate from physical commissioning. Test actual
 Green update/reboot/backup restoration, settings preservation, interruption and
 post-restore readings before using staged releases across customer homes.
+
+## System observations · 25 October 2026
+
+The companion also reads Core, OS, Supervisor and installed app versions and the latest full system-backup metadata every five minutes. Only version strings and aggregate backup checks leave the home. Backup names, keys, locations, credentials, device values and resident activity are excluded. Encrypted off-device backup evidence is required by the new stable-rollout preflight. A backup that excludes the HA database is not treated as a full recovery point. Observations do not perform a restore or prove physical commissioning.
+
+The separate connector 0.23.0 observes Core changes, available update entities and selected-device/integration health. Existing connector-only updates and recovery retain their fixed endpoints and approval rules. Core/OS, other apps, Zigbee coordinator and device firmware remain centrally reviewed installer tasks.
