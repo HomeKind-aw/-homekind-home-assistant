@@ -1,3 +1,9 @@
+# 0.23.1
+
+- Preserve selected media app and audio input labels without treating app menus as playback.
+- Clear context when off or unavailable; reject URLs and control characters.
+- Retain 0.23.0 monitoring, local selections, sharing choices and control timing.
+
 # 0.23.0 · 25 October 2026
 
 - Add isolated, read-only system checks every five minutes and during updates.

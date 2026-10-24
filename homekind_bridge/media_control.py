@@ -17,6 +17,10 @@ def short_text(value, limit):
     return value.strip()[:limit]
 
 
+def context_text(value):
+    return short_text(value, 80) if isinstance(value, str) and not re.search(r"[\x00-\x1f\x7f]", value) else ""
+
+
 def playback(state, choices):
     attrs = state.get("attributes", {})
     features = attrs.get("supported_features", 0)
@@ -30,6 +34,22 @@ def playback(state, choices):
         result["features"].append("radio")
     if result["state"] in ("playing", "paused", "buffering"):
         result.update(title=short_text(attrs.get("media_title"), 160), artist=short_text(attrs.get("media_artist"), 120))
+    # A foreground app or an input is context, never evidence of playback.
+    # Use the same explicitly selected media lane as track sharing; content
+    # addresses, artwork and arbitrary integration attributes remain local.
+    result["assumed_state"] = attrs.get("assumed_state") is True
+    if result["state"] in ("on", "idle", "playing", "paused", "buffering"):
+        for field in ("app_name", "source"):
+            value = context_text(attrs.get(field))
+            if value:
+                result[field] = value
+        app_id = attrs.get("app_id")
+        if isinstance(app_id, str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+){1,12}", app_id) and len(app_id) <= 160:
+            result["app_id"] = app_id
+        if not result.get("source"):
+            channel = context_text(attrs.get("media_channel"))
+            if channel:
+                result["source"] = channel
     volume = attrs.get("volume_level")
     if isinstance(volume, (int, float)) and not isinstance(volume, bool) and math.isfinite(volume) and 0 <= volume <= 1:
         result["volume"] = round(volume, 3)
