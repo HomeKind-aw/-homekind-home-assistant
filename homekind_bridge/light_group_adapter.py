@@ -255,8 +255,9 @@ class LightGroupWorker(threading.Thread):
             try:
                 if self.bridge.clock() >= next_advertisement:
                     supported = self.adapter.advertise()
-                    wake = getattr(self.bridge, 'command_wake', None)
-                    next_advertisement = self.bridge.clock() + (300 if wake and wake.healthy() else 30)
+                    # Capability leases expire after 90 seconds on the server.
+                    # Keep renewal independent of the command push connection.
+                    next_advertisement = self.bridge.clock() + 30
                     if not supported:
                         delay = 5
                 if self.adapter.generation is not None:

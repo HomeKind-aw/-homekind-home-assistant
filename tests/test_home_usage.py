@@ -1,5 +1,6 @@
 import sys
 import threading
+import tempfile
 import time
 import unittest
 from pathlib import Path
@@ -8,6 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'homekind_bridge'))
 from control_transport import UsageMeter, CommandWake
+from light_group_adapter import LightGroupWorker
 
 BRIDGE = '00000000-0000-4000-8000-000000000001'
 URL = 'https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge/collect'
@@ -61,6 +63,28 @@ class UsageTests(unittest.TestCase):
         wake.signal('device')
         self.assertTrue(finished.wait(.2))
         thread.join(1)
+
+    def test_group_capability_is_renewed_before_the_server_lease_expires(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        clock = [0]
+        advertisements = []
+        ready = threading.Event()
+        ready.set()
+        def wait(_):
+            clock[0] += 31
+        bridge = SimpleNamespace(directory=directory.name, ready=ready, stopping=lambda:clock[0]>=93,
+                                 clock=lambda:clock[0], wait_commands=wait,
+                                 command_wake=SimpleNamespace(healthy=lambda:True))
+        worker = LightGroupWorker(bridge)
+        def advertise():
+            advertisements.append(clock[0])
+            worker.adapter.generation = 1
+            return True
+        worker.adapter.advertise = advertise
+        worker.adapter.run_once = lambda:None
+        worker.run()
+        self.assertEqual(advertisements, [0,31,62])
 
 
 if __name__ == '__main__':

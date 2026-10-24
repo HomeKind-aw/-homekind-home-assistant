@@ -1,3 +1,8 @@
+## 0.22.1
+
+- Preserve the 30-second group capability renewal required by the existing 90-second server lease, independently of the push channel. Group controls remain available throughout quiet periods.
+- Retain the event-driven command optimisation and usage counters introduced in 0.22.0.
+
 ## 0.22.0
 
 - Use the authenticated command push channel without repeated empty HTTP polls. The server recovers missed events within two seconds; loss of the channel restores half-second polling.
