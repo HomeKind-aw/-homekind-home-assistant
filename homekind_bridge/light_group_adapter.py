@@ -255,7 +255,8 @@ class LightGroupWorker(threading.Thread):
             try:
                 if self.bridge.clock() >= next_advertisement:
                     supported = self.adapter.advertise()
-                    next_advertisement = self.bridge.clock() + 30
+                    wake = getattr(self.bridge, 'command_wake', None)
+                    next_advertisement = self.bridge.clock() + (300 if wake and wake.healthy() else 30)
                     if not supported:
                         delay = 5
                 if self.adapter.generation is not None:
