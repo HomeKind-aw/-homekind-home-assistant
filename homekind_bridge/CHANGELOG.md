@@ -1,3 +1,10 @@
+## 0.22.0
+
+- Use the authenticated command push channel without repeated empty HTTP polls. The server recovers missed events within two seconds; loss of the channel restores half-second polling.
+- Keep sensor upload, alert and media update timings unchanged. Stop repeat empty media publications and reduce repeated light capability advertisements only on a healthy channel.
+- Piggyback cumulative numeric HTTP usage counters on existing uploads once a minute. No device values, headers, URLs, recordings or credentials are retained by the meter.
+- Preserve local device selection, opt-outs, stored credentials and feature settings across upgrades.
+
 # 0.21.0 — shared light controls, 23 October 2026
 
 - Report bounded colour and white-temperature capabilities and current settings alongside brightness.

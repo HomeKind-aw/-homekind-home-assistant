@@ -1,6 +1,6 @@
 name: HomeKind Home Connector
 description: Home devices, sensors, curtains, fans and climate, with approved controls and personal sharing.
-version: "0.21.0"
+version: "0.22.0"
 slug: homekind_bridge
 init: false
 startup: application

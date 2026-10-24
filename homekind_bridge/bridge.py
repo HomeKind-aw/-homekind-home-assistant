@@ -22,7 +22,7 @@ import uuid
 import copy
 from control_transport import JsonConnections, HACommands, CommandWake, TransportError, TransportDenied, NotConnected
 
-VERSION = "0.21.0"
+VERSION = "0.22.0"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -256,6 +256,7 @@ class Connector:
         self.control_socket = None
         self.command_wake = None
         self.collect_supported = None
+        self.next_usage = 0
         self.directory = Path(data_dir)
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.directory, 0o700)
@@ -618,8 +619,14 @@ class Connector:
             payload = {"ha_connected": connected, "catalog": catalog, "states": batch if connected else [], "version": VERSION,
                        "bridge_info": {"read_only": self.read_only, "stream_connected": connected, "observed_at": self.stamp(), "queue_size": len(self.pending), "queue_dropped": self.dropped, "weather": self.shared_weather() if connected else []}}
         payload = bounded_sync(payload)
+        # Piggyback numeric usage on an existing upload once a minute. It adds
+        # no monitoring request and failures cannot block home readings.
+        if self.native_transport and self.clock() >= self.next_usage:
+            payload['bridge_info']['usage'] = _connections.usage.snapshot(self.credentials.get('bridge_id'))
         batch = payload["states"]
         result = self.cloud("sync", payload)
+        if 'usage' in payload.get('bridge_info', {}):
+            self.next_usage = self.clock() + 60
         with self.lock:
             self.tracked = result["tracked"]
             if heartbeat or not connected:

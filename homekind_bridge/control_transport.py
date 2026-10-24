@@ -1,10 +1,43 @@
 """Persistent transports. No credentials, entity names or payloads are logged."""
 import http.client
 import json
+import re
 import ssl
 import threading
 import time
 import urllib.parse
+import uuid
+
+
+class UsageMeter:
+    """Cumulative numeric counters only; never retain headers or device payloads."""
+    def __init__(self):
+        self.session = str(uuid.uuid4())
+        self.lock = threading.Lock()
+        self.homes = {}
+
+    def record(self, url, data, sent, received, elapsed_ms, failed):
+        target = urllib.parse.urlsplit(url)
+        bridge = data.get('bridge_id') if isinstance(data, dict) else None
+        if target.hostname != 'saixlksmjzbakopvbsqv.supabase.co' or not isinstance(bridge, str) or not re.fullmatch(r'[0-9a-f-]{36}', bridge):
+            return
+        route = target.path.removeprefix('/functions/v1/')
+        if route == target.path or not re.fullmatch(r'homekind-[a-z-]+(?:/[a-z-]+)?', route):
+            return
+        with self.lock:
+            if bridge not in self.homes and len(self.homes) >= 16:
+                return
+            rows = self.homes.setdefault(bridge, {})
+            if route not in rows and len(rows) >= 40:
+                return
+            row = rows.setdefault(route, dict(requests=0, errors=0, request_bytes=0, response_bytes=0, duration_ms=0))
+            for key, value in dict(requests=1, errors=int(failed), request_bytes=sent, response_bytes=received, duration_ms=round(elapsed_ms)).items():
+                row[key] += max(0, int(value))
+
+    def snapshot(self, bridge):
+        with self.lock:
+            return {'protocol': 1, 'session_id': self.session,
+                    'routes': {key: dict(value) for key, value in self.homes.get(bridge, {}).items()}}
 
 
 class TransportError(Exception):
@@ -24,6 +57,7 @@ class JsonConnections:
     def __init__(self):
         self.local = threading.local()
         self.context = ssl.create_default_context()
+        self.usage = UsageMeter()
 
     def request(self, url, token, data=None, timeout=12):
         target = urllib.parse.urlsplit(url)
@@ -43,24 +77,30 @@ class JsonConnections:
             connection.sock.settimeout(timeout)
         payload = None if data is None else json.dumps(data, separators=(',', ':'), allow_nan=False).encode()
         path = urllib.parse.urlunsplit(('', '', target.path or '/', target.query, ''))
+        started, received, failed = time.monotonic(), 0, True
         try:
             connection.request('GET' if data is None else 'POST', path, body=payload,
                                headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Connection': 'keep-alive'})
             response = connection.getresponse()
             raw = response.read(2_000_001)
+            received = len(raw)
             if len(raw) > 2_000_000:
                 raise TransportError('Response is too large.')
             if response.status in (401, 403):
                 raise TransportDenied('Connection access ended.')
             if not 200 <= response.status < 300:
                 raise TransportError('HTTP ' + str(response.status))
-            return json.loads(raw)
+            answer = json.loads(raw)
+            failed = False
+            return answer
         except (OSError, http.client.HTTPException, ValueError, TransportError) as error:
             connection.close()
             connections.pop(key, None)
             if isinstance(error, TransportError):
                 raise
             raise TransportError('Connection unavailable.') from None
+        finally:
+            self.usage.record(url, data, len(payload or b''), received, (time.monotonic()-started)*1000, failed)
 
 
 class HACommands(threading.Thread):
@@ -161,6 +201,10 @@ class CommandWake(threading.Thread):
         self.connected = threading.Event()
         self.socket = None
         self.events = {lane: threading.Event() for lane in ('device', 'media', 'group')}
+        self.last_heartbeat = 0
+
+    def healthy(self):
+        return self.connected.is_set() and time.monotonic()-self.last_heartbeat < 6
 
     def signal(self, lane=None):
         for key, event in self.events.items():
@@ -175,7 +219,10 @@ class CommandWake(threading.Thread):
 
     def wait(self, lane, timeout=None):
         event = self.events[lane]
-        event.wait((2 if self.connected.is_set() else .5) if timeout is None else timeout)
+        # The negotiated server rechecks durable pending work every two seconds.
+        # Events wake this immediately. A dead channel restores the original fast
+        # poller; the long wait is interrupted by run() on disconnect/staleness.
+        event.wait((30 if self.healthy() else .5) if timeout is None else timeout)
         event.clear()
 
     def run(self):
@@ -184,7 +231,7 @@ class CommandWake(threading.Thread):
             try:
                 bridge = self.c.credentials.get('bridge_id', '')
                 # No bearer credential in a URL, subprotocol, log or stored file.
-                url = self.c.cloud_root.replace('https://', 'wss://', 1).rsplit('/', 1)[0] + '/homekind-command-wake?bridge_id=' + urllib.parse.quote(bridge, safe='')
+                url = self.c.cloud_root.replace('https://', 'wss://', 1).rsplit('/', 1)[0] + '/homekind-command-wake?bridge_id=' + urllib.parse.quote(bridge, safe='') + '&protocol=2'
                 with self.connect(url, additional_headers={'Authorization': 'Bearer ' + self.c.credentials['token']},
                                   proxy=None, compression=None, open_timeout=5, close_timeout=1,
                                   ping_interval=10, ping_timeout=5, max_size=2048) as socket:
@@ -193,16 +240,20 @@ class CommandWake(threading.Thread):
                         try:
                             message = json.loads(socket.recv(timeout=1))
                         except TimeoutError:
+                            if self.connected.is_set() and not self.healthy():
+                                break
                             continue
                         if not isinstance(message, dict):
                             break
-                        if message == {'type': 'ready'}:
+                        if message == {'type': 'ready', 'protocol': 2, 'recovery_interval_ms': 2000}:
+                            self.last_heartbeat = time.monotonic()
                             self.connected.set()
                             delay = 1
                             self.signal()  # Recover anything committed before subscription.
                         elif message.get('type') == 'wake' and message.get('lane') in self.events and set(message) == {'type', 'lane'}:
                             self.signal(message['lane'])
                         elif message.get('type') == 'heartbeat':
+                            self.last_heartbeat = time.monotonic()
                             continue
                         else:
                             break

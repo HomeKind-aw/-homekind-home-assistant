@@ -102,7 +102,7 @@ class MediaControls(threading.Thread):
         payload = {"players": rows, "radio": self.radio.catalogue() if connected else {"status": "unavailable", "country": "AU", "stations": []}}
         if c.stopping():
             return
-        if force or payload != self.last_payload or time.monotonic() >= self.next_sync:
+        if force or payload != self.last_payload or (self.selected and time.monotonic() >= self.next_sync):
             c.cloud("media-sync", payload)
             self.last_payload = payload
             self.next_sync = time.monotonic() + 10
