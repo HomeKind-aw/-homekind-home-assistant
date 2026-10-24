@@ -72,6 +72,46 @@ class MediaTests(unittest.TestCase):
         state = self.state(); state['state'] = 'idle'
         self.assertNotIn('title', media.playback(state, {}))
 
+    def test_current_app_and_input_are_context_not_playback(self):
+        state = self.state(); state['state'] = 'on'
+        state['attributes'].update(app_name='Netflix', app_id='com.netflix.ninja', source='HDMI 1', assumed_state=True)
+        result = media.playback(state, {})
+        self.assertEqual(result['state'], 'on')
+        self.assertEqual(result['app_name'], 'Netflix')
+        self.assertEqual(result['app_id'], 'com.netflix.ninja')
+        self.assertEqual(result['source'], 'HDMI 1')
+        self.assertTrue(result['assumed_state'])
+        self.assertNotIn('title', result)
+
+    def test_context_does_not_send_urls_tokens_or_arbitrary_attributes(self):
+        for value in ['https://private/token', 'bad\nlabel', 'bad\x7flabel', True, {'token': 'secret'}]:
+            state = self.state(); state['attributes'].update(app_name=value, source=value, app_id=value)
+            result = media.playback(state, {})
+            self.assertNotIn('app_name', result); self.assertNotIn('source', result); self.assertNotIn('app_id', result)
+
+    def test_idle_context_clears_when_off_or_unavailable(self):
+        for status in ['off', 'standby', 'unknown', 'unavailable']:
+            state = self.state(); state['state'] = status
+            state['attributes'].update(app_name='Netflix', app_id='com.netflix.ninja', source='Spotify')
+            result = media.playback(state, {})
+            self.assertNotIn('app_name', result); self.assertNotIn('source', result); self.assertNotIn('app_id', result)
+
+    def test_reported_channel_is_a_bounded_audio_source_fallback(self):
+        state = self.state(); state['attributes']['media_channel'] = 'Feel Good'
+        self.assertEqual(media.playback(state, {})['source'], 'Feel Good')
+        state['attributes']['source'] = 'TV'
+        self.assertEqual(media.playback(state, {})['source'], 'TV')
+
+    def test_new_context_keeps_existing_local_selection_boundary(self):
+        calls = []
+        def request(url, token, data=None):
+            calls.append((url, data)); return {'ok': True}
+        c = self.connector(request); other = self.state(); other['entity_id'] = 'media_player.not_selected'
+        other['attributes']['app_name'] = 'Private app'; c.current[other['entity_id']] = other
+        media.MediaControls(c).sync()
+        payload = next(data for url, data in calls if url.endswith('media-sync'))
+        self.assertNotIn('Private app', str(payload)); self.assertEqual(len(payload['players']), 1)
+
     def test_browsed_content_ids_stay_local_and_only_opaque_keys_leave(self):
         def request(url, token, data=None):
             return {'service_response': {'media_player.sonos': {'children': [{'title': 'My radio', 'can_play': True, 'media_content_type': 'music', 'media_content_id': 'http://private/radio'}]}}}
