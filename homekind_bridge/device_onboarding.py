@@ -11,6 +11,7 @@ import uuid
 from bridge import BridgeError, CLOUD_URL, VERSION, Connector, atomic_json, button_candidates, catalog_entry, safe_entity, utc_timestamp
 
 PROTOCOL = 1
+NETWORK_DISCOVERY_SOURCES = {"dhcp", "ssdp", "zeroconf", "esphome", "integration_discovery", "discovery", "mqtt", "homekit"}
 MAX_CANDIDATES = 500
 META = ("ha_unique_id", "ha_platform", "ha_device_id", "ha_area_id", "ha_area_name", "ha_entity_category")
 
@@ -191,7 +192,10 @@ class LocalHome:
         try:
             with self.socket() as ws:
                 self.auth(ws)
-                self.discoveries = discovery_metadata(self.query(ws, 1, "config_entries/flow/progress"))
+                flows = self.query(ws, 1, "config_entries/flow/progress")
+                if not isinstance(flows, list) or len(flows) > 1000:
+                    raise BridgeError("Home Assistant discovery is unavailable.")
+                self.discoveries = discovery_metadata([f for f in flows if isinstance(f, dict) and isinstance(f.get("context"), dict) and f["context"].get("source") in NETWORK_DISCOVERY_SOURCES])
                 self.discovery_supported = True
         except Exception:
             # Keep entity discovery, existing readings and controls working.
@@ -242,6 +246,11 @@ class DeviceOnboarding:
         self.available = False
         self.rows = []
         self.error = ""
+        try:
+            from network_setup import NetworkSetup
+            self.network_setup = NetworkSetup(manager)
+        except Exception:
+            self.network_setup = None  # Optional setup cannot disable ordinary discovery or pairing.
 
     def save(self):
         atomic_json(self.path, self.saved)
@@ -409,6 +418,11 @@ class DeviceOnboarding:
                 self.save()
             return
         self.act(directive, options)
+        if self.network_setup is not None and isinstance(directive, dict) and directive.get("mode") == "existing" and directive.get("phase") in ("queued", "searching", "ready"):
+            try:
+                self.network_setup.step(self.client, options)
+            except Exception:
+                pass  # Optional integration setup cannot interrupt ordinary discovery.
 
     def run(self):
         while not self.manager.stopped.is_set():

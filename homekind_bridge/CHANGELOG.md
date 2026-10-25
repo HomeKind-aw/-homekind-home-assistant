@@ -1,3 +1,11 @@
+## 0.24.0 — 26 October 2026
+
+- Uses existing Home Assistant network discoveries for a person-confirmed, input-free integration setup. No brand-specific connectors, Wi-Fi provisioning or credential forwarding.
+- Additional sign-in, QR, key or hardware approval pauses setup. Controls, cameras, personal sharing and selected readings keep their own existing confirmation.
+- Requests expire with the current authorised search. Dispatch is recorded before the one local configuration write; uncertain outcomes and restarts never replay it.
+- Runs only during an active connected-device search, with no extra idle polling. Existing credentials, selections, settings and opt-out are retained.
+- Software checks are separate from physical Green, phone and device commissioning.
+
 # 0.23.1
 
 - Preserve selected media app and audio input labels without treating app menus as playback.
