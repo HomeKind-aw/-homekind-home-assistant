@@ -139,3 +139,12 @@ Sensor hardware still controls when a measurement exists. For a confirmed Aqara 
 Connector 0.23.0 and Maintenance Companion 0.1.1 add read-only system observations. HomeKind’s independent server monitor checks connection heartbeats each minute, records observed software changes, checks recovery for ten healthy minutes and pauses a failing connector rollout. The CRM Active houses page shows system status, coverage gaps, versions, pending updates and backup evidence. Quiet sensors and switched-off TVs are not treated as failures just because their state has not changed.
 
 Update the existing `homekind_bridge` in place and commission the companion once through HomeKind connection settings. No new ordinary connector privilege, feature selection, credentials or pairing is required for its update. Companion installation remains an installer task because it uses Supervisor manager access. Test real Green updates, interruptions, ZHA/Zigbee2MQTT recovery and backup restoration before enabling stable fleet rollout. Do not mark a home commissioned from a software test.
+
+
+## Network device setup (0.24.0)
+
+Set up a Wi-Fi device using its maker’s app or instructions first. In HomeKind, choose Home → Devices → Add device → Wi-Fi & network devices. The existing Home Assistant integrations discover supported devices; HomeKind does not maintain its own brand drivers or claim that every Wi-Fi product is discoverable. Choose a discovery and explicitly connect it. A simple empty confirmation can finish automatically. Forms, passwords, QR codes, external account approval, keys and other commissioning steps pause for an installer.
+
+Adding the Home Assistant integration does not add its readings to HomeKind. Select its readings and room separately, then check an actual update. Camera access, controls and personal health sharing retain their existing consent. An uncertain setup result must be checked before another request; it is not automatically retried. Closing the discovery search, permission/session expiry, opt-out and connector replacement revoke pending setup. The feature adds no ongoing network scan or idle cloud poll.
+
+The current HomeKind backend and app must also support the network setup protocol. Installing this connector preserves the existing app slug, data directory, credentials and selections. Test on the actual Green and devices before recording physical commissioning.
