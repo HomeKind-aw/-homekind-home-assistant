@@ -171,7 +171,19 @@ class SetupManager:
         payload = {"bridge_id": credentials["bridge_id"], "protocol": managed_settings.PROTOCOL, "version": VERSION,
                    "management_id": options.get("management_id", ""), "applied_revision": options.get("applied_revision", 0),
                    "selected_entities": options["entity_ids"], "config": {key: options.get(key, [] if key != "read_only" else True) for key in managed_settings.FIELDS}}
+        # Separate personal-location protocol, piggybacked on the existing poll.
+        # Its failure must not interrupt ordinary settings, readings or controls.
+        try:
+            if not hasattr(self, "location_sharing"):
+                from location_sharing import LocationSharing
+                self.location_sharing = LocationSharing(self)
+            payload["location"] = self.location_sharing.prepare(options)
+        except Exception:
+            if hasattr(self, "location_sharing"):
+                self.location_sharing.clear()
         result = self.request(CLOUD_URL + "/configuration", credentials["token"], payload, timeout=5)
+        if hasattr(self, "location_sharing"):
+            self.location_sharing.accept(result.get("location") if isinstance(result, dict) else None, options)
         with self.lock:
             # A concurrent local edit, pause or replacement always takes priority.
             if options != self.options() or credentials != json.loads(self.credentials.read_text()):

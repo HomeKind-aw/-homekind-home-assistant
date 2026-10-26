@@ -102,3 +102,5 @@ Explicit family request / timeout / current recipient permission: ______
 No eligible contact shows blocked follow-up / no claimed delivery: ______
 Pause / 24-hour pause / source or epoch change requires review: ______
 Real phone notification receipt and response, tablet dashboard: ______
+
+0.25.0 acceptance: update on the Green; enable a real phone’s GPS/background/remote connectivity; select it in that person’s HomeKind account; walk outside and return; verify source timestamps and a second account’s selected access, pause and expiry. These physical checks remain pending until observed.

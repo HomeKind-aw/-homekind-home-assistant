@@ -148,3 +148,10 @@ Set up a Wi-Fi device using its maker’s app or instructions first. In HomeKind
 Adding the Home Assistant integration does not add its readings to HomeKind. Select its readings and room separately, then check an actual update. Camera access, controls and personal health sharing retain their existing consent. An uncertain setup result must be checked before another request; it is not automatically retried. Closing the discovery search, permission/session expiry, opt-out and connector replacement revoke pending setup. The feature adds no ongoing network scan or idle cloud poll.
 
 The current HomeKind backend and app must also support the network setup protocol. Installing this connector preserves the existing app slug, data directory, credentials and selections. Test on the actual Green and devices before recording physical commissioning.
+
+
+## Out and about — 0.25.0
+
+Enable this optional feature in HomeKind → Settings → Privacy & my sharing → Out and about. Choose your own existing GPS source, sharing level, named recipients and whether device-away periods appear in summaries. A phone needs its Home Assistant Companion location permissions and working remote connection; compatible GPS integrations may also supply a GPS device_tracker. AirTag and ordinary Bluetooth presence are not GPS sources. No phone location is collected by installing or updating the connector.
+
+Discovery lasts two minutes. It shares names and stable fingerprints only. Device observations are a separate, person-authorised protocol on the existing configuration transport; they never enter shared device state, household activity history, AI learning or stored recaps. Generic managed settings fields remain unchanged. Local management opt-out, connector replacement or identity mismatch ends collection. The latest source measurement time is preserved; an HTTP check never freshens an old GPS report.

@@ -1,3 +1,13 @@
+## 0.25.0 — 26 October 2026
+
+- Optional person-owned Out and about location sharing through HomeKind.
+- GPS device discovery requires an explicit two-minute search.
+- Private reports follow each person’s chosen source, recipients and summary preference.
+- Home/away mode sends no coordinates; approximate mode shares only a rounded latest point.
+- Reuses the existing settings poll; no additional idle worker or HTTP polling.
+- Preserves the app slug, credentials, selections, local opt-out and settings revision.
+- Software checks are separate from physical phone/Green commissioning.
+
 ## 0.24.0 — 26 October 2026
 
 - Uses existing Home Assistant network discoveries for a person-confirmed, input-free integration setup. No brand-specific connectors, Wi-Fi provisioning or credential forwarding.
