@@ -2,6 +2,8 @@
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, enable HomeKind management with the resident and connect. Add supported devices in HomeKind. It reuses the existing HomeKind bridge service and runs on your Green.
 
+**M5Stack voice pilot — 5 November 2026:** [Firmware and one-room setup](voice/atom-voices3r/README.md) for Atom VoiceS3R / EchoS3R. Separate native Assist preparation; the HomeKind hands-free backend and physical acceptance remain unfinished. Existing connector operation and version are unchanged.
+
 ## Wider device support (0.16.1)
 
 HomeKind now guides Wi-Fi/network setup and supports curtains/blinds, fans and heating/cooling, alongside expanded numeric and detection sensors. Once the device's Home Assistant integration is ready, use **HomeKind → Settings → Devices → Add device**. Open **Device support** for the supported families and connection options.
