@@ -11,6 +11,9 @@ configuration changed. HomeKind hands-free activation remains unfinished.
   explicit endpoint identity, incomplete/disabled components, connection URL
   handling and separation of configuration from physical/HomeKind acceptance.
 - All **239** existing connector tests pass. The connector runtime is unchanged.
+- Connector and Maintenance Companion container builds, full software checks and
+  startup checks passed on both **aarch64** and **amd64** in CI run
+  `41922000536` for the initial package commit `402970a5dc6e14596b94a6edfbe0fa6b83016f68`.
 - Local firmware compilation reached ESP-IDF component discovery, where this
   execution environment's process view caused `psutil.NoSuchProcess` before
   CMake could complete. This is not a successful binary build. The dedicated

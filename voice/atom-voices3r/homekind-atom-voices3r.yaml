@@ -12,6 +12,16 @@ esphome:
     name: homekind.atom-voices3r-pilot
     version: "2026.11.05"
   on_boot:
+    - priority: 400
+      then:
+        # A maker's earlier ESPHome image may have saved an unmuted preference.
+        # Initialise HomeKind's own first-install choice before Wi-Fi starts.
+        - if:
+            condition:
+              lambda: return !id(homekind_mute_initialised);
+            then:
+              - switch.turn_on: mute
+              - lambda: id(homekind_mute_initialised) = true;
     - priority: -100
       then:
         - if:
@@ -36,6 +46,12 @@ api:
 preferences:
   # Mute changes are infrequent; save them without the default deferred flush.
   flash_write_interval: 0s
+
+globals:
+  - id: homekind_mute_initialised
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
 
 ota:
   - id: !extend ota_esphome

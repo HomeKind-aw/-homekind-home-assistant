@@ -7,7 +7,7 @@ __ · firmware SHA __ · HA Core/OS __ · STT/TTS versions __ · pipeline/voice 
 
 | Check | Record | Result |
 | --- | --- | --- |
-| First boot | Muted; no request starts | Not tested |
+| First boot | Muted even over a maker image that saved unmuted; no request starts | Not tested |
 | Pairing | Actual identity, encrypted link, agreed room | Not tested |
 | Wake word | Successes/attempts at each agreed seated position | Not tested |
 | Voices | Resident's normal/quieter voice and another willing household member | Not tested |
