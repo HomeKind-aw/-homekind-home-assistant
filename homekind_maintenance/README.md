@@ -1,39 +1,21 @@
-# HomeKind Maintenance Companion 0.1.1
+# HomeKind Maintenance Companion 0.2.0
 
-Installer task: install this separate app from the same HomeKind repository as
-the HomeKind Home Connector. In HomeKind, open Settings → Home connection health
-and updates → Set up maintenance and create a ten-minute maintenance code. Paste
-it into this app's `pairing_code` option. Agree the update policy with the resident
-and enable `allow_updates` once. Start this companion and enable Start on boot.
-Turn off the connector's Home Assistant automatic updates so that they cannot
-bypass staged releases. Future feature choices remain in HomeKind.
+9 November 2026. This release adds household-local scheduled, approved Home Assistant Core and OS updates. Existing connector credentials and recovery remain in the same private data folder. It keeps the `homekind_maintenance` slug and manager role; the additional Home Assistant API capability checks local readiness only through fixed routes.
 
-The companion requires Supervisor's manager role. Its code restricts operations
-to `homekind_bridge` in its own repository. It cannot update itself. It creates
-an encrypted local partial backup of only that connector before an update and
-only restores its own recorded backup. Home Assistant Core, OS, other apps,
-folders, arbitrary services and remote command execution are not exposed.
+## One-time setup on your phone
 
-Supervisor installs repository latest; it cannot pin an arbitrary version.
-Updates fail closed if repository latest differs from the approved version.
-HomeKind enrolment, confirmed choices, devices and personal permissions are not
-changed. Backup passwords remain only in the companion's protected data folder.
-Do not delete the companion's data if recovery may be needed. Maintain the
-installation's separately agreed system backup and recovery route.
+Install/update this app from the existing HomeKind repository in Home Assistant. In HomeKind open Home → Devices → Device health → Connection updates & maintenance → Set up maintenance. Create a ten-minute maintenance code and paste it into `pairing_code`. Agree the policy with the resident, enable `allow_updates` and `allow_system_updates`, start the app and enable Start on boot. Both update options default off. The ordinary connector gains no new permission. Keep the connector's own automatic updates off when using staged connector rollout.
 
-Pilot releases require thirty minutes of observed healthy operation before a
-stable release can be requested. Stable homes proceed one at a time, with five
-healthy minutes between them. Missing observations restart the health period.
-Failed or uncertain operations pause their rollout. An uncertain physical
-operation is never automatically retried. Recovery requires a manager request
-and a matching locally recorded pre-update backup from the last seven days.
+In HomeKind open **Update times & status**, enable a chosen window and wait for the home's acknowledgement. The suggested overnight period is 2–5 am in the household's timezone. Choose days, custom hours, pause or defer. Review the reported Core/OS release and approve it for that window. Approval is version-specific and cannot inject a URL, arbitrary version, app slug, command or service. Firmware and other apps retain their installer/vendor process.
 
-Software verification is separate from physical commissioning. Test actual
-Green update/reboot/backup restoration, settings preservation, interruption and
-post-restore readings before using staged releases across customer homes.
+## Update and recovery
 
-## System observations · 25 October 2026
+One component is updated at a time. Local and cloud checks require current permission, exact acknowledged choices, stable supported Supervisor, a responding Home Assistant API, no playing media/running scripts or pending controls, and enough time before the window closes. Each update creates and verifies an encrypted full system backup including the Home Assistant database. Core configuration is checked before installation. OS installation and its separate reboot each obey the chosen window. Missing a period never causes daytime catch-up.
 
-The companion also reads Core, OS, Supervisor and installed app versions and the latest full system-backup metadata every five minutes. Only version strings and aggregate backup checks leave the home. Backup names, keys, locations, credentials, device values and resident activity are excluded. Encrypted off-device backup evidence is required by the new stable-rollout preflight. A backup that excludes the HA database is not treated as a full recovery point. Observations do not perform a restore or prove physical commissioning.
+Every POST is durably recorded before dispatch. A lost response, restart or uncertain result never repeats it. Version and service observations reconcile progress. Controls pause, readings remain last known, queued controls are cancelled, and fresh post-maintenance readings are required before controls return. Failure or uncertain outcomes require review. The local backup journal is retained; never delete Companion data while recovery may be needed.
 
-The separate connector 0.23.0 observes Core changes, available update entities and selected-device/integration health. Existing connector-only updates and recovery retain their fixed endpoints and approval rules. Core/OS, other apps, Zigbee coordinator and device firmware remain centrally reviewed installer tasks.
+Open this app's **Web UI** inside Home Assistant to see recorded backup references and reveal a selected recovery password locally. Passwords never leave the home. Keep a downloaded backup and its password safely. Use Home Assistant → Settings → System → Backups for installer-reviewed full restoration; no automated full restore overwrites newer household choices. Core's own Supervisor recovery remains in place.
+
+Existing connector-only staged updates and exact recorded connector-backup recovery remain supported. Pilot/stable rollout gates are unchanged. The independent read-only inventory reporter remains enabled.
+
+Software verification is separate from physical commissioning. An actual Green Core/OS restart, measured reconnection, restored controls and backup restoration must be tested before fleet recovery is marked verified. Publishing does not pair a home or enable updates.
