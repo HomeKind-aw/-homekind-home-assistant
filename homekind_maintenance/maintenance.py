@@ -92,8 +92,8 @@ class Companion:
             raise MaintenanceError('Check local maintenance choices.')
         return value
 
-    def supervisor(self, path, payload=None):
-        result = self.call('http://supervisor'+path, self.token, payload)
+    def supervisor(self, path, payload=None, timeout=25):
+        result = self.call('http://supervisor'+path, self.token, payload, timeout=timeout)
         if not isinstance(result, dict) or result.get('result') != 'ok' or not isinstance(result.get('data'), dict):
             raise MaintenanceError('Supervisor did not confirm this maintenance request.')
         return result['data']
@@ -271,6 +271,19 @@ class Companion:
         self.enrol(options)
         info = self.discover()
         enabled = options.get('allow_updates') is True
+        system_busy = (self.directory / 'system-update.json').exists()
+        try:
+            from .window_runtime import WindowRuntime
+            if not hasattr(self, 'window_runtime'):
+                self.window_runtime = WindowRuntime(self)
+            connector_job = self.data['records'].get(self.data.get('active'))
+            connector_busy = connector_job and connector_job['phase'] not in ('healthy', 'recovered', 'failed', 'unknown')
+            self.window_runtime.step(allow_start=not connector_busy)
+            system_busy = self.window_runtime.busy()
+        except Exception:
+            if hasattr(self, 'window_runtime'):
+                system_busy = self.window_runtime.busy()
+            # The optional system lane must not interrupt connector recovery.
         try:
             self.advance(info, enabled)
         except MaintenanceError:
@@ -281,7 +294,7 @@ class Companion:
         response = self.cloud('report', self.report(info, enabled))
         command = response.get('command')
         active = self.data['records'].get(self.data.get('active'))
-        if command and enabled and (not active or active['phase'] in ('healthy', 'recovered', 'failed', 'unknown')):
+        if command and enabled and not system_busy and (not active or active['phase'] in ('healthy', 'recovered', 'failed', 'unknown')):
             self.accept(command, info)
 
 
@@ -377,6 +390,8 @@ class InventoryReporter(threading.Thread):
 def main():
     companion = Companion()
     InventoryReporter(companion).start()
+    from .recovery_ui import start_recovery_ui
+    start_recovery_ui(companion)
     while True:
         try:
             companion.step()

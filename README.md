@@ -1,4 +1,4 @@
-# HomeKind Home Connector 0.17.0
+# HomeKind Home Connector 0.25.0
 
 An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, enable HomeKind management with the resident and connect. Add supported devices in HomeKind. It reuses the existing HomeKind bridge service and runs on your Green.
 
@@ -155,3 +155,7 @@ The current HomeKind backend and app must also support the network setup protoco
 Enable this optional feature in HomeKind → Settings → Privacy & my sharing → Out and about. Choose your own existing GPS source, sharing level, named recipients and whether device-away periods appear in summaries. A phone needs its Home Assistant Companion location permissions and working remote connection; compatible GPS integrations may also supply a GPS device_tracker. AirTag and ordinary Bluetooth presence are not GPS sources. No phone location is collected by installing or updating the connector.
 
 Discovery lasts two minutes. It shares names and stable fingerprints only. Device observations are a separate, person-authorised protocol on the existing configuration transport; they never enter shared device state, household activity history, AI learning or stored recaps. Generic managed settings fields remain unchanged. Local management opt-out, connector replacement or identity mismatch ends collection. The latest source measurement time is preserved; an HTTP check never freshens an old GPS report.
+
+## Scheduled Home Assistant updates · 9 November 2026
+
+Maintenance Companion **0.2.0** adds approved Core/OS installation in household-local windows, full encrypted backups and fresh-state recovery. Connector **0.25.0** is unchanged. See [phone setup and recovery](homekind_maintenance/README.md). Version publication is not proof of installation or physical commissioning.
