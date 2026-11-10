@@ -1,3 +1,9 @@
+## 0.2.1 · 10 November 2026
+
+- Paste a maintenance code directly into Open Web UI and connect with one explicit local maintenance choice.
+- Preserve recovery history; show connection confirmation before scheduling.
+- Retain current permissions and update windows; no update starts during pairing.
+
 ## 0.2.0 · 9 November 2026
 
 - Scheduled approved Core/OS updates in acknowledged local-time windows, including daylight-saving boundaries, pause and defer.

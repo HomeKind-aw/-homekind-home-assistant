@@ -1,6 +1,6 @@
 name: HomeKind Maintenance Companion
 description: Installer-enabled, scheduled approved Home Assistant updates and connector recovery.
-version: "0.2.0"
+version: "0.2.1"
 slug: homekind_maintenance
 init: false
 startup: application
