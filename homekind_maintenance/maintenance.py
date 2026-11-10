@@ -82,6 +82,8 @@ class Companion:
         self.call, self.clock, self.options_path = call, clock, Path(options_path)
         self.token = os.environ.get('SUPERVISOR_TOKEN', '')
         self.target = None
+        self.lock = threading.RLock()
+        self.last_report_at, self.last_report_id = 0, None
 
     def save(self):
         atomic(self.path, self.data)
@@ -100,7 +102,55 @@ class Companion:
 
     def cloud(self, operation, payload):
         credential = self.data['credential']
-        return self.call(CLOUD+'/maintenance', credential['token'], {'bridge_id': credential['id'], 'operation': operation, 'payload': payload})
+        result = self.call(CLOUD+'/maintenance', credential['token'], {'bridge_id': credential['id'], 'operation': operation, 'payload': payload})
+        if not isinstance(result, dict):
+            raise MaintenanceError('The HomeKind response could not be confirmed.')
+        if operation == 'report':
+            self.last_report_at, self.last_report_id = self.clock(), credential['id']
+        return result
+
+    def setup_status(self):
+        credential = self.data.get('credential', {})
+        return {'paired': bool(credential),
+                'connected': bool(credential) and self.last_report_id == credential.get('id') and 0 <= self.clock() - self.last_report_at < 90}
+
+    def connect_setup(self, code, allow_maintenance):
+        """An explicit, local Ingress action. Never dispatch an update here."""
+        code = str(code).strip()
+        match = PAIR.fullmatch(code)
+        if not match or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', match[1]):
+            raise MaintenanceError('Paste the complete maintenance code from HomeKind.')
+        if allow_maintenance is not True:
+            raise MaintenanceError('Choose Allow managed updates and backups to connect.')
+        if not self.lock.acquire(timeout=0.25):
+            raise MaintenanceError('Maintenance is checking the home. Try again in a moment.')
+        try:
+            current = self.data['records'].get(self.data.get('active'))
+            if current and current.get('phase') not in ('healthy', 'recovered', 'failed'):
+                raise MaintenanceError('Finish or review the current maintenance operation before reconnecting.')
+            from .system_updates import SystemUpdater
+            system_job = SystemUpdater(self, None).job
+            if system_job and system_job['phase'] not in ('healthy', 'failed', 'cancelled'):
+                raise MaintenanceError('Finish or review the current system update before reconnecting.')
+            info = self.discover()
+            # Validate the expiring code without replacing a working local credential.
+            # ready=false prevents this handshake from offering an update executor.
+            report = self.report(info, False)
+            report.pop('result', None)
+            response = self.call(CLOUD+'/maintenance', match[2],
+                {'bridge_id': match[1], 'operation': 'report', 'payload': report}, timeout=8)
+            if not isinstance(response, dict):
+                raise MaintenanceError('The connection was not confirmed. Create a fresh code in HomeKind.')
+            choices = {**self.options(), 'pairing_code': code,
+                       'allow_updates': True, 'allow_system_updates': True}
+            # Save the same choices in Supervisor so they survive a restart and
+            # remain accurately visible in Home Assistant's Configuration tab.
+            self.supervisor('/addons/self/options', {'options': choices, 'boot': 'auto'}, timeout=8)
+            atomic(self.options_path, choices)
+            self.enrol(choices)
+            self.last_report_at, self.last_report_id = self.clock(), match[1]
+        finally:
+            self.lock.release()
 
     def enrol(self, options):
         code = str(options.get('pairing_code', '')).strip()
@@ -267,6 +317,10 @@ class Companion:
         return {'protocol': 1, 'ready': enabled and info.get('auto_update') is False, 'auto_update': info.get('auto_update') is not False, 'connector_running': info.get('state') == 'started', 'connector_version': version, 'latest_version': latest, **({'result': self.result()} if self.result() else {})}
 
     def step(self):
+        with self.lock:
+            self._step()
+
+    def _step(self):
         options = self.options()
         self.enrol(options)
         info = self.discover()
