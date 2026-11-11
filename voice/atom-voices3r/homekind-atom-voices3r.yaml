@@ -1,0 +1,129 @@
+# HomeKind one-room pilot, 5 November 2026.
+# This is for Atom VoiceS3R / EchoS3R, NOT the original Atom Echo.
+packages:
+  # Exact MIT-licensed manufacturer source; provenance is in upstream.lock.json.
+  m5stack: !include upstream/atom-voices3r-satellite-base.yaml
+
+esphome:
+  name: homekind-voice
+  friendly_name: HomeKind room speaker
+  name_add_mac_suffix: true
+  project:
+    name: homekind.atom-voices3r-pilot
+    version: "2026.11.05"
+  on_boot:
+    - priority: 400
+      then:
+        # A maker's earlier ESPHome image may have saved an unmuted preference.
+        # Initialise HomeKind's own first-install choice before Wi-Fi starts.
+        - if:
+            condition:
+              lambda: return !id(homekind_mute_initialised);
+            then:
+              - switch.turn_on: mute
+              - lambda: id(homekind_mute_initialised) = true;
+    - priority: -100
+      then:
+        - if:
+            condition:
+              switch.is_on: mute
+            then:
+              - voice_assistant.stop:
+              - micro_wake_word.stop:
+              - microphone.mute:
+
+# Credentials are commissioned locally. No HomeKind or provider token belongs here.
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    password: !secret fallback_ap_password
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+preferences:
+  # Mute changes are infrequent; save them without the default deferred flush.
+  flash_write_interval: 0s
+
+globals:
+  - id: homekind_mute_initialised
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+ota:
+  - id: !extend ota_esphome
+    encryption:
+      key: !secret api_encryption_key
+
+# Do not log recognised speech or spoken replies in an ordinary installation.
+logger:
+  level: WARN
+  baud_rate: 0
+
+switch:
+  - id: !extend mute
+    # The first boot stays muted until commissioning with the resident.
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - voice_assistant.stop:
+      - micro_wake_word.stop:
+      - microphone.mute:
+    on_turn_off:
+      - microphone.unmute:
+      - script.execute: start_wake_word
+
+binary_sensor:
+  - id: !remove user_button
+  - platform: gpio
+    id: homekind_user_button
+    internal: true
+    pin:
+      number: GPIO41
+      mode: INPUT_PULLUP
+      inverted: true
+    # Replace the maker's 10-second factory reset gesture with a mute gesture.
+    # A short press starts/stops one request only; it never unmutes the microphone.
+    on_multi_click:
+      - timing:
+          - ON for 50ms to 900ms
+          - OFF for at least 100ms
+        then:
+          - if:
+              condition:
+                switch.is_on: timer_ringing
+              then:
+                - switch.turn_off: timer_ringing
+              else:
+                - if:
+                    condition:
+                      voice_assistant.is_running:
+                    then:
+                      - voice_assistant.stop:
+                    else:
+                      - if:
+                          condition:
+                            and:
+                              - switch.is_off: mute
+                              - voice_assistant.connected:
+                          then:
+                            - voice_assistant.start:
+      - timing:
+          - ON for at least 1500ms
+          - OFF for at least 100ms
+        then:
+          - switch.toggle: mute
+
+text_sensor:
+  - platform: template
+    name: Voice readiness
+    id: homekind_voice_readiness
+    update_interval: 2s
+    entity_category: diagnostic
+    lambda: |-
+      if (id(mute).state) return {"Microphone muted"};
+      if (id(va).get_api_connection() == nullptr) return {"Home Assistant not connected"};
+      if (id(va).is_running()) return {"Voice request in progress"};
+      return {"Assist connected - Okay Nabu"};

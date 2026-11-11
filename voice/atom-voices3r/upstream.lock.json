@@ -1,0 +1,23 @@
+{
+  "prepared_on": "2026-11-05",
+  "status": "one-room pilot; physical commissioning outstanding",
+  "esphome": "2026.10.2",
+  "hardware": "M5Stack Atom VoiceS3R / EchoS3R, C126-VOICE / C126-ECHO",
+  "manufacturer": {
+    "repository": "https://github.com/m5stack/esphome-yaml",
+    "commit": "7358db0145d17c276f616c2d27315c0d3833fe71",
+    "path": "common/atom-voices3r-satellite-base.yaml",
+    "git_blob_sha1": "be8cb6e19eb88b2c5ae7f3ea933aa8cfe3136a5d",
+    "sha256": "1037877f52f8a3ce9ed8b16aa3657f1db7f259a6fa57c7e819e39c3f537af540",
+    "licence": "MIT; original notice in upstream/LICENSE.m5stack"
+  },
+  "external_audio_stack": {
+    "repository": "https://github.com/n-IA-hane/esphome-audio-stack",
+    "tag": "v2026.11.0",
+    "observed_commit": "3787f502d19cfd181df92fee2a920857ef71abcf"
+  },
+  "dependencies_note": "Exact manufacturer YAML vendored unchanged. Its sound and wake-word asset branches remain moving dependencies; this is not a fully locked supply-chain build.",
+  "wake_word": "Okay Nabu; standard development wake word",
+  "hey_homekind_model": "not supplied or verified",
+  "distress_detection": "not implemented"
+}

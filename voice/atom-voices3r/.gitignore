@@ -1,0 +1,9 @@
+secrets.yaml
+.esphome/
+build/
+*.bin
+*.elf
+*.map
+*.log
+__pycache__/
+.voice-venv/

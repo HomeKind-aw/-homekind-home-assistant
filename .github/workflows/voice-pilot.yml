@@ -1,0 +1,40 @@
+name: Verify M5Stack voice pilot
+
+on:
+  push:
+    branches: [main]
+    paths: ['voice/atom-voices3r/**', '.github/workflows/voice-pilot.yml']
+  pull_request:
+    paths: ['voice/atom-voices3r/**', '.github/workflows/voice-pilot.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voice-pilot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firmware:
+    name: ESPHome firmware and setup checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned build tools
+        run: |
+          python3 -m venv .voice-venv
+          .voice-venv/bin/python -m pip install -r voice/atom-voices3r/requirements.txt
+      - name: Run setup and readiness regressions
+        run: .voice-venv/bin/python -m unittest discover -s voice/atom-voices3r/tests -p 'test_*.py' -v
+      - name: Create public synthetic build values
+        run: .voice-venv/bin/python voice/atom-voices3r/scripts/build_fixture.py voice/atom-voices3r
+      - name: Compile complete firmware
+        run: .voice-venv/bin/esphome compile voice/atom-voices3r/homekind-atom-voices3r.yaml
+      - name: Remove synthetic values
+        if: always()
+        run: rm -f voice/atom-voices3r/secrets.yaml
+      # No firmware artifact: CI binaries contain public test credentials.

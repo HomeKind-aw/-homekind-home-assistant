@@ -1,0 +1,2 @@
+# Use this exact ESPHome version for this pilot build.
+esphome==2026.10.2
