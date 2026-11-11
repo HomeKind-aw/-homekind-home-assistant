@@ -104,7 +104,7 @@ class Companion:
         credential = self.data['credential']
         result = self.call(CLOUD+'/maintenance', credential['token'], {'bridge_id': credential['id'], 'operation': operation, 'payload': payload})
         if not isinstance(result, dict):
-            raise MaintenanceError('The HomeKind response could not be confirmed.')
+            raise MaintenanceError('The Belmelo response could not be confirmed.')
         if operation == 'report':
             self.last_report_at, self.last_report_id = self.clock(), credential['id']
         return result
@@ -119,7 +119,7 @@ class Companion:
         code = str(code).strip()
         match = PAIR.fullmatch(code)
         if not match or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', match[1]):
-            raise MaintenanceError('Paste the complete maintenance code from HomeKind.')
+            raise MaintenanceError('Paste the complete maintenance code from Belmelo.')
         if allow_maintenance is not True:
             raise MaintenanceError('Choose Allow managed updates and backups to connect.')
         if not self.lock.acquire(timeout=0.25):
@@ -140,7 +140,7 @@ class Companion:
             response = self.call(CLOUD+'/maintenance', match[2],
                 {'bridge_id': match[1], 'operation': 'report', 'payload': report}, timeout=8)
             if not isinstance(response, dict):
-                raise MaintenanceError('The connection was not confirmed. Create a fresh code in HomeKind.')
+                raise MaintenanceError('The connection was not confirmed. Create a fresh code in Belmelo.')
             choices = {**self.options(), 'pairing_code': code,
                        'allow_updates': True, 'allow_system_updates': True}
             # Save the same choices in Supervisor so they survive a restart and
@@ -157,24 +157,24 @@ class Companion:
         if code and hashlib.sha256(code.encode()).hexdigest() != self.data.get('pairing_hash'):
             match = PAIR.fullmatch(code)
             if not match or str(uuid.UUID(match[1])) != match[1]:
-                raise MaintenanceError('Use the maintenance code from HomeKind.')
+                raise MaintenanceError('Use the maintenance code from Belmelo.')
             if self.data.get('active') and self.data['records'][self.data['active']]['phase'] not in ('healthy', 'recovered', 'failed', 'unknown'):
                 raise MaintenanceError('Finish the current maintenance request before pairing again.')
             self.data['credential'] = {'id': match[1], 'token': match[2]}
             self.data['pairing_hash'] = hashlib.sha256(code.encode()).hexdigest()
             self.save()
         if not self.data.get('credential'):
-            raise MaintenanceError('Pair the maintenance companion in HomeKind.')
+            raise MaintenanceError('Pair the maintenance companion in Belmelo.')
 
     def discover(self):
         own = self.supervisor('/addons/self/info')
         match = re.fullmatch(r'([0-9a-f]{8})_homekind_maintenance', own.get('slug', ''))
         if not match:
-            raise MaintenanceError('Install the companion from the same HomeKind repository.')
+            raise MaintenanceError('Install the companion from the same Belmelo repository.')
         target = match[1]+'_homekind_bridge'
         info = self.supervisor('/addons/'+target+'/info')
         if info.get('slug') != target or info.get('repository') != own.get('repository') or not own.get('repository'):
-            raise MaintenanceError('The connector must belong to this HomeKind repository.')
+            raise MaintenanceError('The connector must belong to this Belmelo repository.')
         self.target = target
         return info
 
@@ -184,7 +184,7 @@ class Companion:
         if before is not None and info.get('version') != before:
             raise MaintenanceError('The installed connector version changed.')
         if latest is not None and info.get('version_latest') != latest:
-            raise MaintenanceError('The available release changed. Review it in HomeKind.')
+            raise MaintenanceError('The available release changed. Review it in Belmelo.')
 
     def valid_backup(self, slug, record):
         if not BACKUP.fullmatch(str(slug)):
@@ -247,7 +247,7 @@ class Companion:
             record['phase'] = 'backup_done'
             self.save()
         else:
-            self.post_once(record, 'backup', '/backups/new/partial', {'name': 'HomeKind connector '+command['before_version'], 'addons': [self.target], 'folders': [], 'homeassistant': False, 'location': '.local', 'password': record['password'], 'background': True, 'extra': {'homekind_operation': ident, 'homekind_target': self.target}})
+            self.post_once(record, 'backup', '/backups/new/partial', {'name': 'Belmelo connector '+command['before_version'], 'addons': [self.target], 'folders': [], 'homeassistant': False, 'location': '.local', 'password': record['password'], 'background': True, 'extra': {'homekind_operation': ident, 'homekind_target': self.target}})
 
     def advance(self, info, locally_enabled):
         record = self.data['records'].get(self.data.get('active'))
@@ -451,7 +451,7 @@ def main():
             companion.step()
         except Exception:
             # Avoid logging credentials, raw Supervisor responses or sensor data.
-            print('Maintenance waiting. Check HomeKind connection health or local setup.', flush=True)
+            print('Maintenance waiting. Check Belmelo connection health or local setup.', flush=True)
         time.sleep(15)
 
 

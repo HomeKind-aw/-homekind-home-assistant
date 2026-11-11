@@ -10,11 +10,11 @@ Connector 0.2.0 installed / read_only=true / Start on boot: __________
 Green restart / connector restart / HA restart recovery: __________
 
 For each device, fill in actual entity ID, model room name, result and measured times.
-1 FP300 presence — entity: ______ room: ______ physical action: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
-2 Door contact — entity: ______ room: ______ open/close: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
-3 Leak — entity: ______ room: ______ safe test/reset: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
-4 Tapo P110 watts — entity: ______ room: ______ change: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
-5 Aqara T2 bulb state — entity: ______ room: ______ local change: ______ HA updated: ______ HomeKind visible: ______ PASS/FAIL: ______
+1 FP300 presence — entity: ______ room: ______ physical action: ______ HA updated: ______ Belmelo visible: ______ PASS/FAIL: ______
+2 Door contact — entity: ______ room: ______ open/close: ______ HA updated: ______ Belmelo visible: ______ PASS/FAIL: ______
+3 Leak — entity: ______ room: ______ safe test/reset: ______ HA updated: ______ Belmelo visible: ______ PASS/FAIL: ______
+4 Tapo P110 watts — entity: ______ room: ______ change: ______ HA updated: ______ Belmelo visible: ______ PASS/FAIL: ______
+5 Aqara T2 bulb state — entity: ______ room: ______ local change: ______ HA updated: ______ Belmelo visible: ______ PASS/FAIL: ______
 Optional P1 motion / temperature / humidity / FP2: ______________________
 
 Device inventory reflects physical placements; no room assignment is inferred from a generic Living room name.
@@ -24,7 +24,7 @@ Stop connector → last-known/stale after 45 seconds + app refresh: ______
 Safe Ethernet / internet interruption → no all-clear inference: ______
 Reconnect → fresh snapshot, timestamps, no duplicate timeline events: ______
 Local allowlist excludes all unchosen entities: ______
-Read-only mode shows no HomeKind On/Off controls: ______
+Read-only mode shows no Belmelo On/Off controls: ______
 Owner sees only this pilot's readings: ______
 Room-limited family account sees only granted rooms: ______
 Different household account sees none: ______
@@ -42,8 +42,8 @@ _____________________________________________________________
 Managed feature settings — connector 0.14.0 (17 October 2026)
   Upgrade this same paired installation. Confirm selected devices, media, cameras
   and existing light/plug choices remain intact without entering another code.
-  Enable Manage feature choices in HomeKind once, with the resident's agreement.
-  Use HomeKind Devices > Connection settings > Connection choices for a selected
+  Enable Manage feature choices in Belmelo once, with the resident's agreement.
+  Use Belmelo Devices > Connection settings > Connection choices for a selected
   media player. Confirm pending changes become confirmed after the home responds.
   Test the actual player's controls and one approved camera separately.
   Make a local change or opt out; verify an older pending app request cannot undo it.
@@ -103,4 +103,4 @@ No eligible contact shows blocked follow-up / no claimed delivery: ______
 Pause / 24-hour pause / source or epoch change requires review: ______
 Real phone notification receipt and response, tablet dashboard: ______
 
-0.25.0 acceptance: update on the Green; enable a real phone’s GPS/background/remote connectivity; select it in that person’s HomeKind account; walk outside and return; verify source timestamps and a second account’s selected access, pause and expiry. These physical checks remain pending until observed.
+0.25.0 acceptance: update on the Green; enable a real phone’s GPS/background/remote connectivity; select it in that person’s Belmelo account; walk outside and return; verify source timestamps and a second account’s selected access, pause and expiry. These physical checks remain pending until observed.

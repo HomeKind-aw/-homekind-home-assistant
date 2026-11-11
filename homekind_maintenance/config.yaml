@@ -1,6 +1,6 @@
-name: HomeKind Maintenance Companion
+name: Belmelo Maintenance Companion
 description: Installer-enabled, scheduled approved Home Assistant updates and connector recovery.
-version: "0.2.1"
+version: "0.2.2"
 slug: homekind_maintenance
 init: false
 startup: application
@@ -12,7 +12,7 @@ homeassistant_api: true
 stage: experimental
 ingress: true
 ingress_port: 8101
-panel_title: HomeKind maintenance
+panel_title: Belmelo maintenance
 panel_admin: true
 options:
   pairing_code: ""

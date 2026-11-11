@@ -46,7 +46,7 @@ class SetupManager:
 
     def publish_health(self, entity, state):
         if not re.fullmatch(r"sensor\.homekind_health_[0-9a-f]{12}_(steps|sleep|resting_hr)", entity):
-            raise SetupError("Choose a HomeKind-owned health source.")
+            raise SetupError("Choose a Belmelo-owned health source.")
         token = os.environ.get("SUPERVISOR_TOKEN")
         if not token:
             raise SetupError("Open this app inside Home Assistant.")
@@ -112,7 +112,7 @@ class SetupManager:
         if "read_only" in data and not isinstance(data["read_only"], bool):
             raise SetupError("Choose whether device controls are allowed.")
         if "managed_settings" in data and type(data["managed_settings"]) is not bool:
-            raise SetupError("Choose whether to manage features in HomeKind.")
+            raise SetupError("Choose whether to manage features in Belmelo.")
         previous = self.options()
         read_only = data.get("read_only", self.options()["read_only"])
         entities = data.get("entity_ids")
@@ -131,14 +131,14 @@ class SetupManager:
         if not isinstance(media, list) or len(media) > 20 or any(not isinstance(e, str) or not re.fullmatch(r"media_player\.[a-z0-9_]{1,150}", e) or e not in entities for e in media) or len(set(media)) != len(media):
             raise SetupError("Choose media controls from your selected media players.")
         if not isinstance(pairing, str) or len(pairing) > 256:
-            raise SetupError("Paste the pairing code from HomeKind.")
+            raise SetupError("Paste the pairing code from Belmelo.")
         pairing = pairing.strip()
         if pairing and not re.fullmatch(r"[0-9a-f]{64}", pairing):
-            raise SetupError("Paste the complete pairing code from HomeKind.")
+            raise SetupError("Paste the complete pairing code from Belmelo.")
         if not entities and not self.paired() and not data.get("managed_settings", previous.get("managed_settings", False)):
             raise SetupError("Choose at least one sensor to start your home connection.")
         if not pairing and (not self.paired() or self.phase == "pairing_required"):
-            raise SetupError("Create a pairing code in HomeKind, then paste it here.")
+            raise SetupError("Create a pairing code in Belmelo, then paste it here.")
         with self.lock:
             if self.options() != previous:
                 raise SetupError("Settings changed. Reload this screen before saving.")
@@ -235,7 +235,7 @@ class SetupManager:
                         elif event == "synced":
                             self.last_cloud_at = time.time()
                             self.phase = "connected" if c.stream_connected else "waiting"
-                            self.message = ("Selected readings are reaching HomeKind." if c.tracked else "Connected. Add your selected sensors to rooms in HomeKind → Admin → Devices.") if c.stream_connected else "Paired. Waiting for a fresh Home Assistant connection."
+                            self.message = ("Selected readings are reaching Belmelo." if c.tracked else "Connected. Add your selected sensors to rooms in Belmelo → Admin → Devices.") if c.stream_connected else "Paired. Waiting for a fresh Home Assistant connection."
                         elif event == "retrying":
                             self.phase = "waiting"
                             self.message = "Waiting for the home or internet connection. Retrying automatically."
@@ -244,7 +244,7 @@ class SetupManager:
             except AccessEnded:
                 with self.lock:
                     self.phase = "pairing_required"
-                    self.message = "The pairing code expired or access ended. Create a fresh code in HomeKind and connect again."
+                    self.message = "The pairing code expired or access ended. Create a fresh code in Belmelo and connect again."
                 # No background retry of a refused one-time code.
                 self.changed.wait()
             except (BridgeError, SetupError, OSError, ValueError):
@@ -269,7 +269,7 @@ class SetupServer(ThreadingHTTPServer):
 
 class SetupHandler(BaseHTTPRequestHandler):
     # The Supervisor authenticates the person. No X-Forwarded-For trust or CORS.
-    server_version = "HomeKind"
+    server_version = "Belmelo"
 
     def log_message(self, *_):
         pass
@@ -357,7 +357,7 @@ def main():
         threading.Thread(target=onboarding.run, name="homekind-onboarding", daemon=True).start()
     except Exception:
         logging.warning("Device setup could not start; existing home readings continue.")
-    logging.info("HomeKind setup is ready. Open Web UI in Home Assistant.")
+    logging.info("Belmelo setup is ready. Open Web UI in Home Assistant.")
     with SetupServer(("0.0.0.0", 8099), manager) as server:
         try:
             server.serve_forever()

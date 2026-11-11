@@ -210,7 +210,7 @@ class SystemUpdater:
                     return
                 if not self.eligible():
                     self.cancel();return
-                self.post_once('backup','/backups/new/full',{'name':'HomeKind before '+j['component']+' '+j['before'],
+                self.post_once('backup','/backups/new/full',{'name':'Belmelo before '+j['component']+' '+j['before'],
                     'password':j['password'],'location':'.local','homeassistant_exclude_database':False,'background':True,'extra':{'homekind_operation':j['id']}})
             elif j['phase'] in ('backup','update'):
                 progress = self.c.supervisor('/jobs/'+j['job_id'],timeout=2)

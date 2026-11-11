@@ -1,6 +1,6 @@
-name: HomeKind Home Connector
+name: Belmelo Home Connector
 description: Home devices, sensors, curtains, fans and climate, with approved controls and personal sharing.
-version: "0.25.0"
+version: "0.25.1"
 slug: homekind_bridge
 init: false
 startup: application
@@ -12,7 +12,7 @@ homeassistant_api: true
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:home-heart
-panel_title: HomeKind
+panel_title: Belmelo
 panel_admin: true
 stage: experimental
 options:

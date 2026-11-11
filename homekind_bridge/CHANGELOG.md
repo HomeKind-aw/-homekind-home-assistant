@@ -1,6 +1,10 @@
+## 0.25.1 - 11 November 2026
+
+Belmelo name, approved logo and setup wording. Existing app slug, pairing, saved device selections, local opt-out and permissions are retained. No new device access is introduced.
+
 ## 0.25.0 — 26 October 2026
 
-- Optional person-owned Out and about location sharing through HomeKind.
+- Optional person-owned Out and about location sharing through Belmelo.
 - GPS device discovery requires an explicit two-minute search.
 - Private reports follow each person’s chosen source, recipients and summary preference.
 - Home/away mode sends no coordinates; approximate mode shares only a rounded latest point.
@@ -27,7 +31,7 @@
 - Add isolated, read-only system checks every five minutes and during updates.
 - Report Home Assistant and available firmware versions, integration health and missing selected entities without device names, values, network details or credentials.
 - Preserve all existing enrolment, selections, settings, permissions and controls. No additional connector privilege or feature checkbox.
-- Requires the deployed HomeKind system-health endpoint for enhanced monitoring. Physical Green and Zigbee commissioning remains separate.
+- Requires the deployed Belmelo system-health endpoint for enhanced monitoring. Physical Green and Zigbee commissioning remains separate.
 
 ## 0.22.1
 
@@ -59,10 +63,10 @@
 
 # 0.19.0 — integration discovery, 23 October 2026
 
-- Project Home Assistant’s pending integration discoveries into the authorised, expiring device setup session in HomeKind.
+- Project Home Assistant’s pending integration discoveries into the authorised, expiring device setup session in Belmelo.
 - Send only an opaque discovery key, display name and integration name. No forms, addresses, credentials or source readings are included.
 - Use the fixed read-only `config_entries/flow/progress` command. Finish initial integration and account setup in Home Assistant; never configure a discovery from a cloud directive.
-- Preserve the existing pairing, selected entities, permissions, management opt-out, feature choices and settings revision. Older HomeKind backends and optional discovery failures leave existing readings and controls working.
+- Preserve the existing pairing, selected entities, permissions, management opt-out, feature choices and settings revision. Older Belmelo backends and optional discovery failures leave existing readings and controls working.
 - Local software and permission checks are separate from physical commissioning. Publishing this version does not install it on a home.
 
 # 0.18.1 — maintenance release candidate, 19 October 2026
@@ -76,7 +80,7 @@
 - Add an optional negotiated, one-use coordinated light lane. Check every locally selected member before one Home Assistant light action and keep partial or uncertain results distinct from confirmation.
 - Persist intent and scoped receipts before authorisation; lost responses and restarts cannot repeat physical dispatch. Existing readings, individual controls and settings continue if this optional backend is unavailable.
 - Retain the same app slug, data directory, pairing, local selection, settings revision and opt-out. No new routine Home Assistant checkbox or privileges.
-- Requires the matched authorised HomeKind group backend and current room permissions. This candidate is not evidence of an installed pilot update, native radio broadcast, physical simultaneity or voice commissioning. The separate voice-light adapter remains unstarted pending the complete voice setup/pipeline release.
+- Requires the matched authorised Belmelo group backend and current room permissions. This candidate is not evidence of an installed pilot update, native radio broadcast, physical simultaneity or voice commissioning. The separate voice-light adapter remains unstarted pending the complete voice setup/pipeline release.
 
 ## 0.17.0 — 17 October 2026
 
@@ -104,7 +108,7 @@
 
 ## 0.15.0 — 17 October 2026
 
-- Add supported devices from HomeKind: discover existing Home Assistant devices, or open a bounded joining window on a locally verified ZHA or Zigbee2MQTT network.
+- Add supported devices from Belmelo: discover existing Home Assistant devices, or open a bounded joining window on a locally verified ZHA or Zigbee2MQTT network.
 - Require explicit reading, name and room confirmation before expanding the local selection; preserve existing pairing and feature choices without another routine HA checkbox.
 - Verify current sign-in, home administration, identity fingerprints and local settings again before pairing or enrolment. Cancelled or expired additions are paused and rejected completions roll back new local selections.
 - Keep controls, camera viewers and personal health consent separate. Metadata contains no state values, media addresses or credentials.
@@ -113,7 +117,7 @@
 
 ## 0.14.0 — 17 October 2026
 
-- Added one-time local enrolment for managing feature choices in HomeKind.
+- Added one-time local enrolment for managing feature choices in Belmelo.
 - Retains pairing, sensor selections and existing permissions through upgrades.
 - Validates bounded feature changes against the local selection and settings revision. Local changes invalidate pending requests.
 - A separate settings worker keeps configuration outages from interrupting home readings and controls.
@@ -125,9 +129,9 @@
 ## 0.13.0 — Free radio and household favourites
 
 - Discover free Radio Browser stations through Home Assistant, using the home's country and Australian presets where available.
-- Play a selected station on an explicitly opted-in compatible media player. Station identifiers and stream addresses stay local; HomeKind receives only public labels and opaque keys.
+- Play a selected station on an explicitly opted-in compatible media player. Station identifiers and stream addresses stay local; Belmelo receives only public labels and opaque keys.
 - Keep station discovery independent of sensor updates and playback commands. Missing radio setup or an unavailable directory leaves existing controls working.
-- Share up to three radio favourites across the household; changes use verified owner access in HomeKind.
+- Share up to three radio favourites across the household; changes use verified owner access in Belmelo.
 - Preserve existing pairing, selected devices, Sonos favourites, health imports and light/plug control mode.
 
 - Added a separate local media-player control choice, off by default.
@@ -138,7 +142,7 @@
 
 ## 0.11.0
 
-- Added HomeKind-owned local CSV and JSON health-report imports, with explicit column mapping, preview and confirmation before creating HA readings.
+- Added Belmelo-owned local CSV and JSON health-report imports, with explicit column mapping, preview and confirmation before creating HA readings.
 - Kept only selected daily steps, sleep duration and resting heart rate; preserved file provenance and original dates.
 - Kept Garmin passwords out of the app. Automatic Garmin sync is unavailable until approved API access is configured.
 - Retained existing personal consent gates; expired local copies and handled source removal through Home Assistant outages.
@@ -156,7 +160,7 @@
 - Offer a separate, explicitly selected button press input; its battery remains maintenance.
 - Support stable MQTT device triggers through a local Home Assistant automation, with a fixed action allowlist and replay checks.
 - Keep existing pairing, selections, weather, camera settings and read-only controls.
-- HomeKind guided commissioning now records starting state, action and return; actual household tests remain to be completed.
+- Belmelo guided commissioning now records starting state, action and return; actual household tests remain to be completed.
 
 ## 0.9.0 — 16 October 2026
 
@@ -170,7 +174,7 @@
 ## 0.8.0 — 16 October 2026
 
 - Share locally selected Home Assistant weather sources, including BOM integrations.
-- Show current conditions, temperature and humidity in HomeKind Local information.
+- Show current conditions, temperature and humidity in Belmelo Local information.
 - Keep forecast history, location attributes, media and provider tokens local.
 - Retain pairing, device selections, light controls and fast updates.
 
@@ -186,7 +190,7 @@
 ## 0.6.0 — 16 October 2026
 
 - Include media players in discovery and selected readings: TVs, speakers, receivers and projectors.
-- Share standard playback states for simple HomeKind room readings and activity summaries.
+- Share standard playback states for simple Belmelo room readings and activity summaries.
 - Keep titles, artists, artwork and media URLs out of shared readings.
 - Playback remains read-only and does not add a notification for every state change.
 - Retain pairing, sensor selections, existing light controls and fast live updates.
@@ -204,7 +208,7 @@
 - Add an explicit local switch for light and plug controls; read-only remains the default.
 - Keep current pairing and selected devices when changing control mode.
 - Recommend useful readings, add bulk selection, and keep other supported settings optional.
-- Include Home Assistant entity categories for HomeKind display defaults.
+- Include Home Assistant entity categories for Belmelo display defaults.
 
 
 ## 0.3.1 — 15 October 2026

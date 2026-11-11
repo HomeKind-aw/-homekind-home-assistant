@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HomeKind outbound connector. Python standard library; credentials stay local."""
+"""Belmelo outbound connector. Python standard library; credentials stay local."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
@@ -22,7 +22,7 @@ import uuid
 import copy
 from control_transport import JsonConnections, HACommands, CommandWake, TransportError, TransportDenied, NotConnected
 
-VERSION = "0.25.0"
+VERSION = "0.25.1"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -327,7 +327,7 @@ class Connector:
         if self.credentials.get("bridge_id") and (not pairing or self.credentials.get("pairing_used") == pairing):
             return
         if not re.fullmatch(r"[0-9a-f]{64}", pairing):
-            raise BridgeError("Create a fresh pairing code in HomeKind.")
+            raise BridgeError("Create a fresh pairing code in Belmelo.")
         if self.credentials.get("enrol_pending") != pairing:
             self.credentials.update(token=secrets.token_hex(32), installation_id=str(uuid.uuid4()), enrol_pending=pairing)
         self.save()  # Persist the same generated token before the one-time exchange.
@@ -677,7 +677,7 @@ class Connector:
                     self.wake.set()
                     return
                 except BridgeError:
-                    logging.warning("HomeKind command connection unavailable; waiting to reconnect.")
+                    logging.warning("Belmelo command connection unavailable; waiting to reconnect.")
                     delay = min(max(2, delay * 2), 30)
                 if delay > .5:
                     self.halt.wait(delay)
@@ -733,7 +733,7 @@ class Connector:
         if not self.read_only:
             worker = threading.Thread(target=self.command_loop, args=(on_status,), name="homekind-commands", daemon=True)
             worker.start()
-        logging.info("HomeKind connector paired. Read-only: %s. Local allowlist: %s entities.", self.read_only, len(self.allowlist))
+        logging.info("Belmelo connector paired. Read-only: %s. Local allowlist: %s entities.", self.read_only, len(self.allowlist))
         next_attempt = 0
         try:
             while not self.stopping():
@@ -750,7 +750,7 @@ class Connector:
                 except AccessEnded:
                     raise
                 except BridgeError:
-                    logging.warning("HomeKind connection unavailable. Retrying in %s seconds.", self.backoff)
+                    logging.warning("Belmelo connection unavailable. Retrying in %s seconds.", self.backoff)
                     on_status("retrying")
                     next_attempt = self.clock() + self.backoff
                     self.backoff = min(self.backoff * 2, 30)
@@ -1030,7 +1030,7 @@ class HAStream:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Connect HomeKind to a local Home Assistant instance.")
+    parser = argparse.ArgumentParser(description="Connect Belmelo to a local Home Assistant instance.")
     parser.add_argument("--options", default="/data/options.json")
     parser.add_argument("--data", default="/data/homekind")
     args = parser.parse_args()

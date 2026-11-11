@@ -1,7 +1,7 @@
-"""HomeKind-owned local report import. No Garmin login, SDK, or cloud client.
+"""Belmelo-owned local report import. No Garmin login, SDK, or cloud client.
 
 Only selected daily aggregates are retained. Raw report files never reach disk.
-Home Assistant publication is explicit; personal HomeKind consent remains separate.
+Home Assistant publication is explicit; personal Belmelo consent remains separate.
 """
 import csv
 import datetime as dt
@@ -92,10 +92,10 @@ def read_report(content, file_format):
             value = json.loads(content, parse_constant=lambda _: None)
             rows = value.get("readings") if isinstance(value, dict) else value
             if not isinstance(rows, list) or len(rows) > 4000 or any(not isinstance(r, dict) for r in rows):
-                raise HealthImportError("Use an array of dated readings in the HomeKind JSON format.")
+                raise HealthImportError("Use an array of dated readings in the Belmelo JSON format.")
             columns = ["date", "steps", "sleep_minutes", "resting_heart_rate"]
         else:
-            raise HealthImportError("Choose CSV or HomeKind JSON.")
+            raise HealthImportError("Choose CSV or Belmelo JSON.")
     except (ValueError, csv.Error, RecursionError, OverflowError):
         raise HealthImportError("The report could not be read. Choose a valid UTF-8 CSV or JSON file.") from None
     if not rows:
@@ -278,14 +278,14 @@ class HealthImports:
             try:
                 # Unavailable clears the old value even when HA is reconnecting.
                 for entity, metric in list(self.tombstones.items()):
-                    self.publish(entity, {"state": "unavailable", "attributes": {"device_class": METRICS[metric][1], "unit_of_measurement": METRICS[metric][2], "friendly_name": "Removed HomeKind health reading"}})
+                    self.publish(entity, {"state": "unavailable", "attributes": {"device_class": METRICS[metric][1], "unit_of_measurement": METRICS[metric][2], "friendly_name": "Removed Belmelo health reading"}})
                     del self.tombstones[entity]
                     self.save(self.file, self.store)
                 for profile_id, p in self.store["profiles"].items():
                     for metric, r in p["readings"].items():
                         label, klass, unit, _ = METRICS[metric]
                         self.publish(self.entity(profile_id, metric), {"state": str(r["value"]), "attributes": {"friendly_name": p["label"] + " " + label, "device_class": klass, "unit_of_measurement": unit, "homekind_health_source": p["source"], "homekind_health_date": r["date"], "homekind_health_timezone": p["timezone"], "homekind_health_reported_at": dt.datetime.fromtimestamp(self.clock(), dt.timezone.utc).isoformat()}})
-                self.message = "Selected file readings are available in Home Assistant. Add them in HomeKind Devices, then connect them to yourself in My sharing. This is a file import, not automatic Garmin sync." if any(p["readings"] for p in self.store["profiles"].values()) else "No current imported readings. Automatic Garmin sync requires approved API access."
+                self.message = "Selected file readings are available in Home Assistant. Add them in Belmelo Devices, then connect them to yourself in My sharing. This is a file import, not automatic Garmin sync." if any(p["readings"] for p in self.store["profiles"].values()) else "No current imported readings. Automatic Garmin sync requires approved API access."
             except Exception:
                 # No raw report, provider exception or credentials enter logs/status.
                 self.message = "The local import is saved. Waiting to publish readings to Home Assistant; retrying automatically."

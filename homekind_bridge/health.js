@@ -17,7 +17,7 @@
  }
  el('health-file').addEventListener('change',async()=>{
   const id=++ticket;invalidate();content='';el('health-preview-button').disabled=true;const file=el('health-file').files[0];if(!file)return;
-  if(file.size>131072||!(/\.(csv|json)$/i.test(file.name))){message('Choose a CSV or HomeKind JSON report up to 128 KB. ZIP and FIT files are not supported.');return;}
+  if(file.size>131072||!(/\.(csv|json)$/i.test(file.name))){message('Choose a CSV or Belmelo JSON report up to 128 KB. ZIP and FIT files are not supported.');return;}
   try{const text=await file.text();if(id!==ticket)return;format=/\.json$/i.test(file.name)?'json':'csv';const result=await api('health/inspect',{content:text,format});if(id!==ticket)return;content=text;fillColumns(result.columns);message(result.rows+' report rows ready. Choose the columns and date format, then preview.');}catch(error){message(error.message);}
  });
  el('health-profile').addEventListener('change',()=>{invalidate();const p=profiles.find(p=>p.id===el('health-profile').value);for(const key of ['label','source','timezone'])el('health-'+key).disabled=!!p;if(p){el('health-label').value=p.label;el('health-source').value=p.source;el('health-timezone').value=p.timezone;}});
@@ -34,7 +34,7 @@
   try{if(!preview||!el('health-confirm').checked)throw Error('Check the preview and confirm storage in this Home Assistant home.');const result=await api('health/commit',{preview_id:preview,publish_to_ha:true});content='';el('health-file').value='';invalidate();el('health-preview-button').disabled=true;await refresh();message(result.message);await loadEntities();}
   catch(error){message(error.message);}finally{button.disabled=false;}
  });
- el('health-template').addEventListener('click',()=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:el('health-timezone').value,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),part=k=>parts.find(p=>p.type===k).value,date=part('year')+'-'+part('month')+'-'+part('day');const blob=new Blob(['date,steps,sleep_minutes,resting_heart_rate\n'+date+',,,\n'],{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='HomeKind-health-template.csv';a.click();URL.revokeObjectURL(url);});
+ el('health-template').addEventListener('click',()=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:el('health-timezone').value,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),part=k=>parts.find(p=>p.type===k).value,date=part('year')+'-'+part('month')+'-'+part('day');const blob=new Blob(['date,steps,sleep_minutes,resting_heart_rate\n'+date+',,,\n'],{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Belmelo-health-template.csv';a.click();URL.revokeObjectURL(url);});
  el('health-timezone').value=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
  const start=()=>{void refresh().catch(error=>message(error.message));};if(state.csrf)start();else document.addEventListener('homekind-ready',start,{once:true});
 })();
