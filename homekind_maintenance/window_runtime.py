@@ -50,9 +50,9 @@ class WindowRuntime:
         paths = [('core', 'core', 'Home Assistant Core', '/core/info'),
                  ('os', 'os', 'Home Assistant OS', '/os/info'),
                  ('supervisor', 'supervisor', 'Home Assistant Supervisor', '/supervisor/info'),
-                 ('companion', 'companion', 'HomeKind Maintenance Companion', '/addons/self/info')]
+                 ('companion', 'companion', 'Belmelo Maintenance Companion', '/addons/self/info')]
         if c.target and re.fullmatch(r'[0-9a-f]{8}_homekind_bridge', c.target):
-            paths.append(('connector', 'connector', 'HomeKind connector', '/addons/' + c.target + '/info'))
+            paths.append(('connector', 'connector', 'Belmelo connector', '/addons/' + c.target + '/info'))
         for ident, kind, name, path in paths:
             try:
                 info = c.supervisor(path, timeout=2)

@@ -1,4 +1,4 @@
-name: Verify HomeKind connector
+name: Verify Belmelo connector
 
 on:
   push:

@@ -241,7 +241,7 @@ class CameraRelay(threading.Thread):
                     # Camera failures never stop sensor uploads or home commands.
                     self.close_sessions()
                     self.sessions.clear()
-                    logging.warning("HomeKind live view is waiting for its camera connection.")
+                    logging.warning("Belmelo live view is waiting for its camera connection.")
                 self.stopped.wait(1 if self.sessions or self.outgoing else 8)
         finally:
             self.close_sessions()

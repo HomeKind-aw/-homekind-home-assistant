@@ -1,3 +1,7 @@
+## 0.2.2 - 11 November 2026
+
+Belmelo name, approved logo and setup wording. Existing app slug, pairing, saved device selections, local opt-out and permissions are retained. No new device access is introduced.
+
 ## 0.2.1 · 10 November 2026
 
 - Paste a maintenance code directly into Open Web UI and connect with one explicit local maintenance choice.

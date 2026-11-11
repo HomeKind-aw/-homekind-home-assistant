@@ -23,7 +23,7 @@ class Supervisor:
         self.calls.append((url, payload))
         if url == CLOUD + '/maintenance':
             if self.reject_code:
-                raise MaintenanceError('That code has expired. Create a fresh code in HomeKind.')
+                raise MaintenanceError('That code has expired. Create a fresh code in Belmelo.')
             assert payload['payload']['ready'] is False
             assert 'result' not in payload['payload']
             return {'command': {'operation': 'update'}}  # Pairing must never dispatch this.
@@ -74,7 +74,7 @@ class MaintenancePairingTests(unittest.TestCase):
     def test_unpaired_ingress_opens_with_a_real_paste_field_and_no_setup_side_effects(self):
         _, _, html = self.request()
         self.assertIn('Paste your code here', html)
-        self.assertIn('Connect to HomeKind', html)
+        self.assertIn('Connect to Belmelo', html)
         self.assertIn('action="pair"', html)
         self.assertNotIn('name="allow_maintenance" value="yes" checked', html)
         self.assertEqual(self.supervisor.calls, [])

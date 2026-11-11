@@ -133,7 +133,7 @@ class WindowJournal:
     """Private additive candidate journal. Unknown/corrupt files fail closed.
 
     A reservation survives restart; no method performs or retries an update.
-    The existing HomeKind-only Companion journal and options are untouched.
+    The existing Belmelo-only Companion journal and options are untouched.
     """
     def __init__(self, path):
         self.path = Path(path)
