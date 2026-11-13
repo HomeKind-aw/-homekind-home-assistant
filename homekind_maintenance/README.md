@@ -1,16 +1,16 @@
-# Belmelo Maintenance Companion 0.2.1
+# Belmelo Maintenance Companion 0.2.3
 
-9 November 2026. This release adds household-local scheduled, approved Home Assistant Core and OS updates. Existing connector credentials and recovery remain in the same private data folder. It keeps the `homekind_maintenance` slug and manager role; the additional Home Assistant API capability checks local readiness only through fixed routes.
+13 November 2026. Navigation and setup wording now follow the simpler Belmelo Settings menu. Scheduled, approved Home Assistant Core and OS updates keep their existing behaviour. Existing connector credentials and recovery remain in the same private data folder. It keeps the `homekind_maintenance` slug and manager role; the additional Home Assistant API capability checks local readiness only through fixed routes.
 
 ## One-time setup on your phone
 
-Install or update this app to 0.2.1 from the existing Belmelo repository, then start it and select **Open Web UI**. This page now includes the pairing form; the Configuration tab is not needed.
+Install or update this app to the latest available version from the existing Belmelo repository, then start it and select **Open Web UI**. This page now includes the pairing form; the Configuration tab is not needed.
 
-In Belmelo open **Home → Devices → Device health → Set up maintenance**, create a ten-minute code and select **Copy code**. Return to the companion’s **Open Web UI**, paste the code, choose **Allow managed updates and backups**, and select **Connect to Belmelo**. The companion verifies the code, saves the agreed local options in Home Assistant and enables Start on boot. An expired or rejected code does not replace the saved local connection. No system update is dispatched by pairing.
+In Belmelo open **Settings → Connections → Home Assistant → Set up maintenance**, create a ten-minute code and select **Copy code**. Return to the companion’s **Open Web UI**, paste the code, choose **Allow managed updates and backups**, and select **Connect to Belmelo**. The companion verifies the code, saves the agreed local options in Home Assistant and enables Start on boot. An expired or rejected code does not replace the saved local connection. No system update is dispatched by pairing.
 
 Existing local choices remain in place on an ordinary upgrade; the new form never enables them automatically. Keep the connector’s own Home Assistant automatic updates off when using staged connector rollout.
 
-In Belmelo open **Update times & status**, enable a chosen window and wait for the home's acknowledgement. The suggested overnight period is 2–5 am in the household's timezone. Choose days, custom hours, pause or defer. Review the reported Core/OS release and approve it for that window. Approval is version-specific and cannot inject a URL, arbitrary version, app slug, command or service. Firmware and other apps retain their installer/vendor process.
+In Belmelo open **Settings → Connections → Home Assistant → Update times & status**, enable a chosen window and wait for the home's acknowledgement. The suggested overnight period is 2–5 am in the household's timezone. Choose days, custom hours, pause or defer. Review the reported Core/OS release and approve it for that window. Approval is version-specific and cannot inject a URL, arbitrary version, app slug, command or service. Firmware and other apps retain their installer/vendor process.
 
 ## Update and recovery
 

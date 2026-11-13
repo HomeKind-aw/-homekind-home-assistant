@@ -2,7 +2,7 @@
 
 ## Device families, controls and routines (0.16.0)
 
-In **Belmelo → Settings → Devices**, choose **Add device → Add a Wi-Fi / network device** for setup guidance and confirmed discovery. **Device support** lists the available families. A device must first have a working Home Assistant integration, whichever radio or network it uses.
+In **Belmelo → Settings → Household & devices → Devices & rooms**, choose **Add device → Add a Wi-Fi / network device** for setup guidance and confirmed discovery. **Device support** lists the available families. A device must first have a working Home Assistant integration, whichever radio or network it uses.
 
 Curtains/blinds support advertised open, close, stop, position and tilt. Fans support advertised on/off, speed and oscillation. Heating/cooling supports advertised modes and a bounded single target temperature when available. Dimmable lights support brightness. Controls start off for a new device; enable home requests in Connection choices, then opt in per device. Routines use the same capabilities and recheck access before dispatch. Stop requests do not prove physical completion.
 
@@ -13,7 +13,7 @@ Software upgrades preserve existing pairing, selections, feature choices and man
 
 ## Add devices in Belmelo (0.15.0)
 
-After an installer updates this same connector and the home is enrolled in **Manage feature choices in Belmelo**, use **Belmelo → Settings → Devices → Add device**. Existing enrolled homes need no additional feature checkbox. Pairing credentials, existing selections and feature choices survive the update.
+After an installer updates this same connector and the home is enrolled in **Manage feature choices in Belmelo**, use **Belmelo → Settings → Household & devices → Devices & rooms → Add device**. Existing enrolled homes need no additional feature checkbox. Pairing credentials, existing selections and feature choices survive the update.
 
 - **Find connected devices** searches supported devices already in Home Assistant.
 - **Pair a new Zigbee device** is available for an existing ZHA network, or a Zigbee2MQTT network whose exact permit-join route can be verified from Home Assistant's local MQTT discovery. Joining is limited to 90 seconds; follow the device manufacturer's pairing instructions. A missing network, vendor account, Wi-Fi or Bluetooth integration can still need an installer in Home Assistant. This does not implement Matter or arbitrary integration setup.
@@ -27,7 +27,7 @@ The connector runs setup independently from ordinary readings. It accepts a type
 
 ## Feature choices in Belmelo (0.14.0)
 
-During installation, agree the selected devices with the resident and enable **Manage feature choices in Belmelo** once. Afterwards, use **Belmelo → Settings → Devices → Connection settings → Connection choices** for lights/plugs, media and live-camera availability. Existing device choices and credentials are retained on an update. Existing installations stay locally managed until explicitly enrolled. Camera viewers and personal health consent remain separate choices in Belmelo.
+During installation, agree the selected devices with the resident and enable **Manage feature choices in Belmelo** once. Afterwards, use **Belmelo → Settings → Household & devices → Devices & rooms → Connection settings → Connection choices** for lights/plugs, media and live-camera availability. Existing device choices and credentials are retained on an update. Existing installations stay locally managed until explicitly enrolled. Camera viewers and personal health consent remain separate choices in Belmelo.
 
 Routine updates must keep the saved settings. An installer handles new device installation, the agreed automatic app update policy, backups and recovery. This version does not enable fleet software updates or rollback itself.
 
@@ -63,7 +63,7 @@ Update the connector, restart it, and open its Web UI. Select your media players
 
 ## Cameras, doorbells and personal health (0.7.0)
 
-Update the Belmelo Home Connector to **0.7.0**, restart it, then open its Web UI. Existing pairing, selected entities and light/plug control choices stay in place. Select your cameras, doorbell entities and supported personal sensors, save, then add the found devices under **Belmelo → Settings → Devices**.
+Update the Belmelo Home Connector to **0.7.0**, restart it, then open its Web UI. Existing pairing, selected entities and light/plug control choices stay in place. Select your cameras, doorbell entities and supported personal sensors, save, then add the found devices under **Belmelo → Settings → Household & devices → Devices & rooms**.
 
 - **Cameras:** small status readings such as Ready, Streaming, Recording or Off. Images, video, camera access tokens and stream URLs stay in Home Assistant. Live video is not relayed by this connector.
 - **Doorbells:** supported `event` entities and binary doorbell sensors show their ring state. New rings can appear as “Front doorbell rang” in recorded home activity. The initial snapshot, an old event timestamp and repeated heartbeats do not create new ring events. Doorbell updates do not generate a notification for every reading.

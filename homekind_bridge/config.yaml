@@ -1,6 +1,6 @@
 name: Belmelo Home Connector
 description: Home devices, sensors, curtains, fans and climate, with approved controls and personal sharing.
-version: "0.25.1"
+version: "0.25.2"
 slug: homekind_bridge
 init: false
 startup: application

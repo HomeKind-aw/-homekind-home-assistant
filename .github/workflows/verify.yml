@@ -44,7 +44,7 @@ jobs:
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
           docker buildx build --platform "$TARGET_PLATFORM" --load \
-            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.25.0 \
+            --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.25.2 \
             --tag homekind-connector:verify ./homekind_bridge
       - name: Verify runtime and run software checks in the built container
         env:
@@ -99,10 +99,11 @@ jobs:
           TARGET_ARCH: ${{ matrix.arch }}
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          docker buildx build --platform "$TARGET_PLATFORM" --load --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.2.1 --tag homekind-maintenance:verify ./homekind_maintenance
+          docker buildx build --platform "$TARGET_PLATFORM" --load --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.2.3 --tag homekind-maintenance:verify ./homekind_maintenance
           docker run --rm --platform "$TARGET_PLATFORM" --entrypoint python3 homekind-maintenance:verify -m compileall -q /opt/homekind
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_home_maintenance.py' -v
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_*maintenance*.py' -v
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_*window*.py' -v
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_system_updates.py' -v
+
 

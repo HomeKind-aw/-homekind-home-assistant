@@ -1,23 +1,23 @@
-# Belmelo Home Connector 0.25.0
+# HomeKind Home Connector 0.17.0
 
-An installable Home Assistant app for the Belmelo pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, enable Belmelo management with the resident and connect. Add supported devices in Belmelo. It reuses the existing Belmelo bridge service and runs on your Green.
+An installable Home Assistant app for the HomeKind pilot. Setup opens inside Home Assistant on your phone: paste a pairing code, enable HomeKind management with the resident and connect. Add supported devices in HomeKind. It reuses the existing HomeKind bridge service and runs on your Green.
 
 ## Wider device support (0.16.1)
 
-Belmelo now guides Wi-Fi/network setup and supports curtains/blinds, fans and heating/cooling, alongside expanded numeric and detection sensors. Once the device's Home Assistant integration is ready, use **Belmelo → Settings → Devices → Add device**. Open **Device support** for the supported families and connection options.
+HomeKind now guides Wi-Fi/network setup and supports curtains/blinds, fans and heating/cooling, alongside expanded numeric and detection sensors. Once the device's Home Assistant integration is ready, use **HomeKind → Settings → Household & devices → Devices & rooms → Add device**. Open **Device support** for the supported families and connection options.
 
 Selected devices show their actual supported controls. Choose **Connection choices → Allow supported device requests**, then explicitly allow controls in each device's preferences. Routines offer those same actions and typed reading fields. Position, speed and target temperature are bounded by the local device. Locks, access doors, alarms, valves, humidifiers, water heaters, sirens and mowers provide status and routine conditions; their service controls stay in their integration. Personal health keeps its existing individual consent path.
 
 Updating this same managed installation needs no new feature checkbox, pairing code or permission to every entity. Existing light/plug, media and camera choices survive. Initial Wi-Fi passwords, vendor login, Matter commissioning and new integration installation still follow their own local setup instructions. Physical testing is required before relying on a newly connected device.
 
-## Add devices in Belmelo (0.15.0)
+## Add devices in HomeKind (0.15.0)
 
-After an installer updates this same connector and the home is enrolled in **Manage feature choices in Belmelo**, use **Belmelo → Settings → Devices → Add device**. Existing enrolled homes need no additional feature checkbox. Pairing credentials, existing selections and feature choices survive the update.
+After an installer updates this same connector and the home is enrolled in **Manage feature choices in HomeKind**, use **HomeKind → Settings → Household & devices → Devices & rooms → Add device**. Existing enrolled homes need no additional feature checkbox. Pairing credentials, existing selections and feature choices survive the update.
 
 - **Find connected devices** searches supported devices already in Home Assistant.
 - **Pair a new Zigbee device** is available for an existing ZHA network, or a Zigbee2MQTT network whose exact permit-join route can be verified from Home Assistant's local MQTT discovery. Joining is limited to 90 seconds; follow the device manufacturer's pairing instructions. A missing network, vendor account, Wi-Fi or Bluetooth integration can still need an installer in Home Assistant. This does not implement Matter or arbitrary integration setup.
 - Review a found physical device, select its readings, confirm names and rooms, then explicitly add them. Metadata is shared only during the expiring setup session; readings are not added to the local selection before confirmation. Existing local selections are retained.
-- Wait for the home connector's acknowledgement and check the first real reading. Confirmation does not mark a device Tested or Active. Controls and live cameras remain separate choices in Belmelo; health devices stay **On person** and require the person's own connection and sharing choices in **My sharing**.
+- Wait for the home connector's acknowledgement and check the first real reading. Confirmation does not mark a device Tested or Active. Controls and live cameras remain separate choices in HomeKind; health devices stay **On person** and require the person's own connection and sharing choices in **My sharing**.
 
 Setup requires a current verified account with both home-connection administration and whole-home device-setup access. Requests expire after five minutes or the requesting sign-in's expiry. Cancelling, changing local settings, replacing the connector or losing permission stops further setup; the radio also has its own short timer. An interrupted or expired addition is paused, and a rejected completion rolls back only its newly appended local selections when the connector next checks in. Closing a confirmed addition leaves its acknowledgement in progress; closing an unconfirmed search cancels it.
 
@@ -25,29 +25,29 @@ The connector runs setup independently from ordinary readings. It accepts a type
 
 ## Install from the Home Assistant App store
 
-The connector repository is public so Home Assistant can download and install it directly from your phone. The Belmelo portal, database, household data and credentials remain private. You do not need a GitHub sign-in to install the connector.
+The connector repository is public so Home Assistant can download and install it directly from your phone. The HomeKind portal, database, household data and credentials remain private. You do not need a GitHub sign-in to install the connector.
 
 1. Open Home Assistant using an administrator account.
-2. In Belmelo, open **Settings → Devices → Connect Home Assistant → Add Belmelo to Home Assistant**. Alternatively, open Home Assistant's **Settings → Apps → App store → ⋮ → Repositories** and add `https://github.com/Belmelo-aw/-homekind-home-assistant`. Earlier Home Assistant versions call Apps **Add-ons**.
-3. Install **Belmelo Home Connector**, enable **Start on boot**, and start it. The first installation builds the pinned container on your Green and needs internet. No pairing code is needed to start the setup screen.
+2. In HomeKind, open **Settings → Connections → Home Assistant → Add HomeKind to Home Assistant**. Alternatively, open Home Assistant's **Settings → Apps → App store → ⋮ → Repositories** and add `https://github.com/HomeKind-aw/-homekind-home-assistant`. Earlier Home Assistant versions call Apps **Add-ons**.
+3. Install **HomeKind Home Connector**, enable **Start on boot**, and start it. The first installation builds the pinned container on your Green and needs internet. No pairing code is needed to start the setup screen.
 4. Tap **Open Web UI**. Leave this screen ready on your phone.
-5. Open your Belmelo household, then **Settings → Devices → Connect Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
-6. Return to the Belmelo Web UI inside Home Assistant. Paste the code and, with the resident, enable **Manage feature choices in Belmelo**. Initial sensor selection is optional for a managed home. Tap **Connect household**. No file copying, terminal command or Home Assistant password is needed for this route.
-7. In Belmelo → **Settings → Devices → Add device**, choose **Find connected devices** or pair a supported Zigbee device, then review and confirm its readings and rooms. Exact area-name matches can suggest a room; confirm the actual room before saving.
+5. Open your HomeKind household, then **Settings → Connections → Home Assistant → Create pairing code**. Copy the fresh code; it lasts 10 minutes.
+6. Return to the HomeKind Web UI inside Home Assistant. Paste the code and, with the resident, enable **Manage feature choices in HomeKind**. Initial sensor selection is optional for a managed home. Tap **Connect household**. No file copying, terminal command or Home Assistant password is needed for this route.
+7. In HomeKind → **Settings → Household & devices → Devices & rooms → Add device**, choose **Find connected devices** or pair a supported Zigbee device, then review and confirm its readings and rooms. Exact area-name matches can suggest a room; confirm the actual room before saving.
 
 For an optional computer-based local install, copy `homekind_bridge` into Home Assistant's `local_apps` directory, refresh the App store and install it under Local apps. Use **Open Web UI** for the same setup steps.
 
 ## Update an existing installation
 
-From 0.14.0, the installer can enable **Manage feature choices in Belmelo** once in Web UI and save the existing sensor selection. After that, use **Belmelo → Settings → Devices → Connection settings → Connection choices** to manage light/plug requests, media controls and live-camera availability for the selected devices. Camera viewers and each person's health consent keep their separate choices. Existing installations retain their current settings and local management until explicitly enrolled. No new pairing code is needed for this upgrade. Managed software updates use the separately installed Belmelo Maintenance Companion 0.1.0. See its README for one-time commissioning, pilot gates and restricted connector backup recovery. The ordinary connector does not gain Supervisor manager access.
+From 0.14.0, the installer can enable **Manage feature choices in HomeKind** once in Web UI and save the existing sensor selection. After that, use **HomeKind → Settings → Household & devices → Devices & rooms → Connection settings → Connection choices** to manage light/plug requests, media controls and live-camera availability for the selected devices. Camera viewers and each person's health consent keep their separate choices. Existing installations retain their current settings and local management until explicitly enrolled. No new pairing code is needed for this upgrade. Managed software updates use the separately installed HomeKind Maintenance Companion 0.2.3. See its README for one-time commissioning, pilot gates and restricted connector backup recovery. The ordinary connector does not gain Supervisor manager access.
 
-The `homekind_bridge` app slug and `/data/homekind` credentials directory are unchanged. A local installation and a repository installation have different Home Assistant repository identifiers, so use **Stop connection** in Belmelo before moving between them and pair the replacement once. An update within the same app installation preserves its credentials. Do not run two connectors for the same household.
+The `homekind_bridge` app slug and `/data/homekind` credentials directory are unchanged. A local installation and a repository installation have different Home Assistant repository identifiers, so use **Stop connection** in HomeKind before moving between them and pair the replacement once. An update within the same app installation preserves its credentials. Do not run two connectors for the same household.
 
 After updating to 0.3.0, open **Web UI** to manage the sensor selection. That screen's saved selection becomes authoritative; it is kept in the app's private data directory. You can remove every tick and save to pause local sharing, or select sensors again to resume. A refused/expired code or revoked bridge requires a new pairing code; it is not retried in the background. A completed pairing no longer needs its code entered on future starts.
 
 ## Household and room setup
 
-Use your own private ChatGPT sign-in for Belmelo. The named pilot testing account does not require an authenticator; other accounts retain their normal checks. Create or open your household with its actual time zone. In **Settings → Rooms & plan**, import the saved pilot if needed. **Rename** keeps a room's identity, model mapping and device assignments. **Delete** removes the room from home views, ends its scoped access and open invitations, and moves devices to Unassigned with controls disabled. The model and historical records are retained.
+Use your own private ChatGPT sign-in for HomeKind. The named pilot testing account does not require an authenticator; other accounts retain their normal checks. Create or open your household with its actual time zone. In **Settings → Household & devices → Devices & rooms → Rooms**, import the saved pilot if needed. **Rename** keeps a room's identity, model mapping and device assignments. **Delete** removes the room from home views, ends its scoped access and open invitations, and moves devices to Unassigned with controls disabled. The model and historical records are retained.
 
 Choose the intended coverage with the resident before enabling it. History, notifications and routines are separate choices; the connector does not turn them on. Readings describe sensors, without identifying a person or proving that a room is empty.
 
@@ -55,7 +55,7 @@ Choose the intended coverage with the resident before enabling it. History, noti
 
 - The Web UI is available through Home Assistant Ingress to an administrator. The app accepts Ingress traffic from the Supervisor only and exposes no host port.
 - Pairing and bridge credentials remain in the app's private data directory. The cloud stores credential digests. The UI never returns the Supervisor token, bridge token or retained credential file.
-- The phone setup starts in read-only mode. A local administrator can explicitly allow selected light and plug controls. Microphones, person/location entities, raw camera/video attributes and unclassified personal text are excluded. Cameras share status by default; live viewing requires a separate local selection and Belmelo permission; supported health values require a separate personal connection and consent. Discovery sends only the selected supported entity metadata; reading values also require registration in the Belmelo household.
+- The phone setup starts in read-only mode. A local administrator can explicitly allow selected light and plug controls. Microphones, person/location entities, raw camera/video attributes and unclassified personal text are excluded. Cameras share status by default; live viewing requires a separate local selection and HomeKind permission; supported health values require a separate personal connection and consent. Discovery sends only the selected supported entity metadata; reading values also require registration in the HomeKind household.
 - Home Assistant's `homeassistant_api` capability is broader than a read-only per-entity scope. Code and the explicit local allowlist enforce the restriction. The app requests no Supervisor management, host network, Docker access, privileged mode or extra host mounts.
 - The existing bridge retries temporary outages, reconnects with a snapshot, and labels stale readings. It logs connection status and counts, without raw credentials or sensor histories.
 - Run the physical checks in `PILOT_ACCEPTANCE.txt`. Automated software checks do not commission your actual Green, sensors, iPhone or iPad.
@@ -67,22 +67,22 @@ Bundled Inter and Nunito fonts retain their SIL Open Font License notices in `ho
 
 ## Optional light and plug controls (0.4.0)
 
-After updating, open the connector Web UI and enable **Allow light and plug controls**, then save. Read-only is the default. Current pairing and selected devices are retained. In Belmelo, enable controls per device under **Display & alerts**. Belmelo groups can request all enabled lights in a room together; every member is authorised separately and its actual state is reported back. Only selected light and switch entities can be controlled.
+After updating, open the connector Web UI and enable **Allow light and plug controls**, then save. Read-only is the default. Current pairing and selected devices are retained. In HomeKind, enable controls per device under **Display & alerts**. HomeKind groups can request all enabled lights in a room together; every member is authorised separately and its actual state is reported back. Only selected light and switch entities can be controlled.
 
 
 ## Faster updates (0.5.0)
 
-Update the Belmelo Home Connector in Home Assistant and restart it. Pairing, selected devices and your current control choice are retained. Commands and sensor uploads now run independently, with up to three commands at once. Readings wake the uploader; heartbeat writes are batched. Belmelo receives live update signals and shows “Sending” immediately, then the device’s reported result. Devices that report infrequently and slow networks still affect the final timing.
+Update the HomeKind Home Connector in Home Assistant and restart it. Pairing, selected devices and your current control choice are retained. Commands and sensor uploads now run independently, with up to three commands at once. Readings wake the uploader; heartbeat writes are batched. HomeKind receives live update signals and shows “Sending” immediately, then the device’s reported result. Devices that report infrequently and slow networks still affect the final timing.
 
 
 ## TV and audio activity (0.6.0)
 
-Update the connector, restart it, and open its Web UI. Select your media players alongside existing sensors and save. Pairing and your current selections are retained. In Belmelo, add the found TVs or speakers and allocate them to rooms. They appear as small readings such as “TV · Playing” and “Speaker · Paused”, with last-use history when recording and access allow it. “On” without playback detail is shown as “Playback unknown”; unavailable devices retain a clear status. Programme titles, artists, artwork and media URLs are not sent. This update reads playback state; media service controls are not enabled. Ordinary playback changes do not generate a notification.
+Update the connector, restart it, and open its Web UI. Select your media players alongside existing sensors and save. Pairing and your current selections are retained. In HomeKind, add the found TVs or speakers and allocate them to rooms. They appear as small readings such as “TV · Playing” and “Speaker · Paused”, with last-use history when recording and access allow it. “On” without playback detail is shown as “Playback unknown”; unavailable devices retain a clear status. Programme titles, artists, artwork and media URLs are not sent. This update reads playback state; media service controls are not enabled. Ordinary playback changes do not generate a notification.
 
 
 ## Cameras, doorbells and personal health (0.7.0)
 
-Update the Belmelo Home Connector to **0.7.0**, restart it, then open its Web UI. Existing pairing, selected entities and light/plug control choices stay in place. Select your cameras, doorbell entities and supported personal sensors, save, then add the found devices under **Belmelo → Settings → Devices**.
+Update the HomeKind Home Connector to **0.7.0**, restart it, then open its Web UI. Existing pairing, selected entities and light/plug control choices stay in place. Select your cameras, doorbell entities and supported personal sensors, save, then add the found devices under **HomeKind → Settings → Household & devices → Devices & rooms**.
 
 - **Cameras:** small status readings such as Ready, Streaming, Recording or Off. Images, video, camera access tokens and stream URLs stay in Home Assistant. Live video is not relayed by this connector.
 - **Doorbells:** supported `event` entities and binary doorbell sensors show their ring state. New rings can appear as “Front doorbell rang” in recorded home activity. The initial snapshot, an old event timestamp and repeated heartbeats do not create new ring events. Doorbell updates do not generate a notification for every reading.
@@ -99,18 +99,18 @@ No new camera, doorbell or health service controls are added. Light and switch O
 
 This build adds a separate **Live camera view** choice in the connector. Camera status continues through the existing sensor connection. Live view is off by default, including after an update.
 
-Update this same connector installation, open **Web UI**, keep the camera selected in readings, then tick it under **Live camera view** and save. Pairing and existing controls are retained. In Belmelo, open the camera in its room and choose **Live-view choices**, enable viewing and select approved people. An approved person can then choose **View camera**. The resident can pause live camera sharing for the home without gaining access to an unshared feed.
+Update this same connector installation, open **Web UI**, keep the camera selected in readings, then tick it under **Live camera view** and save. Pairing and existing controls are retained. In HomeKind, open the camera in its room and choose **Live-view choices**, enable viewing and select approved people. An approved person can then choose **View camera**. The resident can pause live camera sharing for the home without gaining access to an unshared feed.
 
 The connector carries short-lived WebRTC connection messages, not video, images, RTSP addresses or Home Assistant credentials. Video is receive-only, sound starts muted, and no webcam or microphone permission is requested. Closing the view, leaving the page or hiding the app stops the viewing session. Sessions end after five minutes; open the camera again to continue.
 
 Camera failures use a separate worker and do not stop the sensor stream or light/plug command worker. An additional network relay may be needed for viewing away from home. Relay support is implemented but this pilot has no relay credentials configured. Actual G100 video/audio, iPad playback and outside-home viewing remain uncommissioned. The runtime API was checked against Home Assistant Core 2026.10.1.
 
-The pilot camera database, dedicated endpoint and Belmelo viewer are active. Update and commission the same Green installation before relying on live viewing. Physical G100 playback is not yet verified.
+The pilot camera database, dedicated endpoint and HomeKind viewer are active. Update and commission the same Green installation before relying on live viewing. Physical G100 playback is not yet verified.
 
 
 ## Compact media controls — 0.12.0
 
-Update this same connector installation and open its Web UI. Keep the intended media players selected under readings. Under **Media controls & now playing**, tick the players you want and save. This choice starts off on existing installations and is independent of light/plug controls. In Belmelo, open the room's compact media panel, choose **Enable media controls**, and save the room's permitted control choice and up to three favourites. No new pairing code is needed.
+Update this same connector installation and open its Web UI. Keep the intended media players selected under readings. Under **Media controls & now playing**, tick the players you want and save. This choice starts off on existing installations and is independent of light/plug controls. In HomeKind, open the room's compact media panel, choose **Enable media controls**, and save the room's permitted control choice and up to three favourites. No new pairing code is needed.
 
 The panel shows current track/artist, play or pause and volume where the player supports them. Multiple players share one panel with a selector. Favourite names come from the player's browseable favourites or input sources; unsupported players keep their basic controls. Streaming-service accounts still need to be configured in Home Assistant or the player's app.
 
@@ -120,11 +120,11 @@ Software verification is complete; actual Sonos/Cast playback and mobile interac
 
 ## Managed maintenance (companion 0.1.0)
 
-Belmelo Settings → Home connection health and updates reports current versions,
+HomeKind Settings → Home connection health and updates reports current versions,
 waiting readings, batteries and physical tests. The separate maintenance companion
 supports pilot/stable rollout and explicit encrypted connector-backup recovery.
 Install and commission it once with the resident; normal connector feature choices
-stay in Belmelo. Its manager permission is isolated from the ordinary connector.
+stay in HomeKind. Its manager permission is isolated from the ordinary connector.
 Actual Green update/restore tests are required before stable rollout. See
 [Maintenance Companion](homekind_maintenance/README.md).
 
@@ -132,30 +132,4 @@ Actual Green update/restore tests are required before stable rollout. See
 
 Readings use their own change-upload lane and a separate ten-second quiet-device heartbeat. The upload floor is half a second, within the existing cloud limit. Media playback, favourites and commands run independently. A healthy Home Assistant session resets reconnect backoff. Pairing, local selections, opt-out and feature choices are retained; no new feature checkbox is needed.
 
-Sensor hardware still controls when a measurement exists. For a confirmed Aqara P1 using Zigbee2MQTT, the agreed pilot profile is a five-second `detection_interval` and seven-second `occupancy_timeout`. Wake the P1 with one brief button press before changing its interval, confirm the interval reads back as 5, then set/check the clearing option as 7. Retain any existing sensitivity choice. Observe actual on/off timing before accepting the profile. This is a local setting, not an automatic consequence of updating the connector; no Belmelo status is cleared ahead of Home Assistant.
-
-## Automatic compatibility checks · 25 October 2026
-
-Connector 0.23.0 and Maintenance Companion 0.1.1 add read-only system observations. Belmelo’s independent server monitor checks connection heartbeats each minute, records observed software changes, checks recovery for ten healthy minutes and pauses a failing connector rollout. The CRM Active houses page shows system status, coverage gaps, versions, pending updates and backup evidence. Quiet sensors and switched-off TVs are not treated as failures just because their state has not changed.
-
-Update the existing `homekind_bridge` in place and commission the companion once through Belmelo connection settings. No new ordinary connector privilege, feature selection, credentials or pairing is required for its update. Companion installation remains an installer task because it uses Supervisor manager access. Test real Green updates, interruptions, ZHA/Zigbee2MQTT recovery and backup restoration before enabling stable fleet rollout. Do not mark a home commissioned from a software test.
-
-
-## Network device setup (0.24.0)
-
-Set up a Wi-Fi device using its maker’s app or instructions first. In Belmelo, choose Home → Devices → Add device → Wi-Fi & network devices. The existing Home Assistant integrations discover supported devices; Belmelo does not maintain its own brand drivers or claim that every Wi-Fi product is discoverable. Choose a discovery and explicitly connect it. A simple empty confirmation can finish automatically. Forms, passwords, QR codes, external account approval, keys and other commissioning steps pause for an installer.
-
-Adding the Home Assistant integration does not add its readings to Belmelo. Select its readings and room separately, then check an actual update. Camera access, controls and personal health sharing retain their existing consent. An uncertain setup result must be checked before another request; it is not automatically retried. Closing the discovery search, permission/session expiry, opt-out and connector replacement revoke pending setup. The feature adds no ongoing network scan or idle cloud poll.
-
-The current Belmelo backend and app must also support the network setup protocol. Installing this connector preserves the existing app slug, data directory, credentials and selections. Test on the actual Green and devices before recording physical commissioning.
-
-
-## Out and about — 0.25.0
-
-Enable this optional feature in Belmelo → Settings → Privacy & my sharing → Out and about. Choose your own existing GPS source, sharing level, named recipients and whether device-away periods appear in summaries. A phone needs its Home Assistant Companion location permissions and working remote connection; compatible GPS integrations may also supply a GPS device_tracker. AirTag and ordinary Bluetooth presence are not GPS sources. No phone location is collected by installing or updating the connector.
-
-Discovery lasts two minutes. It shares names and stable fingerprints only. Device observations are a separate, person-authorised protocol on the existing configuration transport; they never enter shared device state, household activity history, AI learning or stored recaps. Generic managed settings fields remain unchanged. Local management opt-out, connector replacement or identity mismatch ends collection. The latest source measurement time is preserved; an HTTP check never freshens an old GPS report.
-
-## Scheduled Home Assistant updates · 9 November 2026
-
-Maintenance Companion **0.2.0** adds approved Core/OS installation in household-local windows, full encrypted backups and fresh-state recovery. Connector **0.25.0** is unchanged. See [phone setup and recovery](homekind_maintenance/README.md). Version publication is not proof of installation or physical commissioning.
+Sensor hardware still controls when a measurement exists. For a confirmed Aqara P1 using Zigbee2MQTT, the agreed pilot profile is a five-second `detection_interval` and seven-second `occupancy_timeout`. Wake the P1 with one brief button press before changing its interval, confirm the interval reads back as 5, then set/check the clearing option as 7. Retain any existing sensitivity choice. Observe actual on/off timing before accepting the profile. This is a local setting, not an automatic consequence of updating the connector; no HomeKind status is cleared ahead of Home Assistant.
