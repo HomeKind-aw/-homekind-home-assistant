@@ -1,6 +1,6 @@
 name: Belmelo Maintenance Companion
 description: Installer-enabled, scheduled approved Home Assistant updates and connector recovery.
-version: "0.2.2"
+version: "0.2.3"
 slug: homekind_maintenance
 init: false
 startup: application
