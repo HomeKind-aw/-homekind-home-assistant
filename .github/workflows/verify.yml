@@ -105,5 +105,3 @@ jobs:
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_*maintenance*.py' -v
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_*window*.py' -v
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_system_updates.py' -v
-
-
