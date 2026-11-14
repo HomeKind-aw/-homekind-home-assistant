@@ -9,6 +9,7 @@ import time
 import uuid
 
 from bridge import BridgeError, CLOUD_URL, VERSION, Connector, atomic_json, button_candidates, catalog_entry, safe_entity, utc_timestamp
+from multistate import object_candidates
 
 PROTOCOL = 1
 NETWORK_DISCOVERY_SOURCES = {"dhcp", "ssdp", "zeroconf", "esphome", "integration_discovery", "discovery", "mqtt", "homekit"}
@@ -30,7 +31,8 @@ def candidates(states, metadata=None, baseline=None):
         raise BridgeError("Home Assistant device discovery is unavailable.")
     metadata = metadata or {}
     rows = []
-    for state in states + button_candidates(states, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())):
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    for state in states + button_candidates(states, stamp) + object_candidates(states, stamp, metadata):
         if not isinstance(state, dict) or not safe_entity(state) or state["entity_id"].startswith("weather."):
             continue
         # Only a small metadata catalogue leaves the home during an explicit session.
@@ -38,7 +40,8 @@ def candidates(states, metadata=None, baseline=None):
         source = state.get("attributes", {}).get("source_entity_id", state["entity_id"])
         row.update({k: str(v)[:200] for k, v in metadata.get(source, {}).items() if k in META and v})
         if source != state["entity_id"]:
-            row["ha_unique_id"] = "homekind-button-" + source
+            row["ha_unique_id"] = ("homekind-object-" if row['device_class'] == 'object_action' else "homekind-button-") + source
+            row.pop('ha_entity_category', None)
         row["fingerprint"] = fingerprint(row)
         row["new"] = baseline is not None and state["entity_id"] not in baseline
         rows.append(row)
@@ -169,7 +172,7 @@ class LocalHome:
                         continue
                     device = device_map.get(e.get("device_id"), {})
                     area = e.get("area_id") or device.get("area_id")
-                    self.metadata[e["entity_id"]] = {k: str(v)[:200] for k, v in {"ha_unique_id": e.get("unique_id"), "ha_platform": e.get("platform"), "ha_device_id": e.get("device_id"), "ha_area_id": area, "ha_area_name": area_map.get(area, {}).get("name"), "ha_entity_category": e.get("entity_category")}.items() if v}
+                    self.metadata[e["entity_id"]] = {k: str(v)[:200] for k, v in {"ha_unique_id": e.get("unique_id"), "ha_platform": e.get("platform"), "ha_device_id": e.get("device_id"), "ha_area_id": area, "ha_area_name": area_map.get(area, {}).get("name"), "ha_entity_category": e.get("entity_category"), "ha_model": device.get("model")}.items() if v}
                 bridges = [d for d in devices if isinstance(d, dict) and str(d.get("manufacturer", "")).lower() == "zigbee2mqtt" and str(d.get("model", "")).lower() == "bridge"]
                 self.excluded_devices = {d["id"] for d in bridges if "id" in d}
                 for i, device in enumerate(bridges[:4]):
