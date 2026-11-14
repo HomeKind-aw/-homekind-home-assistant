@@ -45,7 +45,7 @@ async def _request(session, *, data=None, headers=None, audio=None):
             import json
             return json.loads(body)
     except (ClientError, asyncio.TimeoutError, ValueError) as err:
-        raise VoiceConnectionError("Belle is temporarily unavailable. Check the lights before repeating a control.") from err
+        raise VoiceConnectionError("Belle is temporarily unavailable. Check the device before repeating a control.") from err
 
 async def pair(session, code: str, token: str):
     return await _request(session, data={"operation":"pair", "pairing_code":code.strip().lower(), "token":token})
@@ -66,6 +66,12 @@ class BelleClient:
         return {"Authorization":"Bearer " + self.token,
             "X-Belmelo-Endpoint":self.endpoint, "X-Belmelo-Turn":turn,
             "Content-Type":"audio/wav" if audio else "application/json"}
+
+    async def sync(self, runtime, event=None):
+        body = {"operation":"sync", "runtime":runtime}
+        if event is not None:
+            body["event"] = event
+        return await _request(self.session, data=body, headers=self.headers(str(uuid.uuid4())))
 
     async def transcribe(self, stream):
         if self.lock.locked() or self.pending and time.monotonic() - self.pending[2] < 45:

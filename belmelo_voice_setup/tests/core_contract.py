@@ -7,6 +7,7 @@ import sys
 import types
 from unittest.mock import AsyncMock, Mock, patch
 from homeassistant.components import assist_pipeline, stt, tts
+from homeassistant.components.assist_satellite import AssistSatelliteEntity, AssistSatelliteConfiguration
 from homeassistant.components.conversation import ConversationEntity, ConversationEntityFeature
 
 root=Path(__file__).resolve().parents[1]/'custom_components/belmelo_voice'
@@ -34,6 +35,10 @@ async def main():
     result=await b._async_handle_message(types.SimpleNamespace(text='Kitchen lights off',conversation_id='fictional',language='en',device_id='fictional'),None)
     assert result.response.as_dict()['speech']['plain']['speech']=='A fictional reply'
     assert (await c.async_get_tts_audio('A fictional reply','en'))[0]=='mp3'
+    assert inspect.iscoroutinefunction(AssistSatelliteEntity.async_intercept_wake_word)
+    assert callable(AssistSatelliteEntity.async_get_configuration)
+    assert inspect.iscoroutinefunction(AssistSatelliteEntity.async_set_configuration)
+    assert 'active_wake_words' in AssistSatelliteConfiguration.__dataclass_fields__
     assert 'prefer_local_intents' in inspect.signature(assist_pipeline.async_update_pipeline).parameters
     assert 'pipeline_name' in inspect.signature(assist_pipeline.async_create_default_pipeline).parameters
     # Exercise the real integration setup against the real core API surface,
@@ -45,11 +50,12 @@ async def main():
     entry=types.SimpleNamespace(entry_id='fictional-entry',title='Kitchen',data={'endpoint_id':'fictional','token':'fictional-token','name':'Kitchen','microphone':'kitchen-mic','pipeline_id':'own-pipeline'})
     registry=types.SimpleNamespace(async_get_entity_id=lambda domain,*args:domain+'.belle')
     hass=types.SimpleNamespace(data={},config_entries=types.SimpleNamespace(async_forward_entry_setups=AsyncMock(),async_update_entry=Mock()),
-        states=types.SimpleNamespace(get=lambda entity:types.SimpleNamespace(attributes={'options':[pipeline.name]})),services=types.SimpleNamespace(async_call=AsyncMock()))
-    with patch.object(setup,'async_get_clientsession',return_value=object()),patch.object(setup.er,'async_get',return_value=registry),\
+        states=types.SimpleNamespace(get=lambda entity:types.SimpleNamespace(state=pipeline.name,attributes={'options':[pipeline.name]})),services=types.SimpleNamespace(async_call=AsyncMock()))
+    with patch.object(setup,'SatelliteConnection') as connection,patch.object(setup,'async_get_clientsession',return_value=object()),patch.object(setup.er,'async_get',return_value=registry),\
         patch.object(setup.er,'async_entries_for_device',return_value=[types.SimpleNamespace(domain='select',entity_id='select.kitchen_assistant')]) as lookup,\
         patch.object(setup.assist_pipeline,'async_get_pipelines',return_value=[pipeline]),patch.object(setup.assist_pipeline,'async_update_pipeline',new_callable=AsyncMock) as update:
         assert await setup.async_setup_entry(hass,entry)
+        connection.return_value.start.assert_called_once()
         assert lookup.call_args.args[1]=='kitchen-mic'
         assert update.call_args.kwargs['prefer_local_intents'] is False
         assert update.call_args.kwargs['conversation_engine']=='conversation.belle'
