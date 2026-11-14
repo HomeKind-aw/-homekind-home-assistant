@@ -1,0 +1,43 @@
+name: Verify Belle room voice
+on:
+  push:
+    branches: [main]
+    paths: ['belmelo_voice_setup/**', '.github/workflows/voice.yml']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  voice:
+    name: Belle installer (${{ matrix.arch }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            platform: linux/arm64
+          - arch: amd64
+            platform: linux/amd64
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - if: matrix.arch == 'aarch64'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - name: Build and check installer
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          docker buildx build --platform "$TARGET_PLATFORM" --load --tag belmelo-voice:verify ./belmelo_voice_setup
+          docker run --rm --platform "$TARGET_PLATFORM" --entrypoint python3 belmelo-voice:verify -m compileall -q /opt/belmelo
+          docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --entrypoint sh belmelo-voice:verify -c 'pip install --quiet --target /tmp/test-deps aiohttp==3.14.4 && PYTHONPATH=/tmp/test-deps python3 -B -m unittest discover -s /workspace/belmelo_voice_setup/tests -p "test_*.py" -v'
+      - name: Verify actual Home Assistant engine contract
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+        run: |
+          docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --entrypoint python3 ghcr.io/home-assistant/home-assistant:2026.11.1 -B /workspace/belmelo_voice_setup/tests/core_contract.py

@@ -1,0 +1,18 @@
+name: Belmelo Voice setup
+version: 0.1.0
+slug: belmelo_voice_setup
+description: Install the scoped Ask Belle voice integration, then pair a chosen room microphone in Belmelo.
+url: https://github.com/HomeKind-aw/-homekind-home-assistant/tree/main/belmelo_voice_setup
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: manual
+init: false
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:microphone
+map:
+  - homeassistant_config:rw
+options: {}
+schema: {}

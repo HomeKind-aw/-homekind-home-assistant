@@ -1,0 +1,13 @@
+{
+  "domain": "belmelo_voice",
+  "name": "Belmelo Voice",
+  "version": "0.1.0",
+  "config_flow": true,
+  "documentation": "https://github.com/HomeKind-aw/-homekind-home-assistant/tree/main/belmelo_voice_setup",
+  "issue_tracker": "https://github.com/HomeKind-aw/-homekind-home-assistant/issues",
+  "codeowners": ["@HomeKind-aw"],
+  "dependencies": ["assist_pipeline"],
+  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "requirements": []
+}
