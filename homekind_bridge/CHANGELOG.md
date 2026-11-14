@@ -1,3 +1,10 @@
+## 0.25.3 — 14 November 2026
+
+- Read selected P100 object events, orientation and mounting status through Home Assistant. Preserve event types, timestamps and rapid separate actions.
+- Keep detection switches as settings, and object falls distinct from any human-health interpretation.
+- Preserve existing credentials, entity selections, local opt-out, feature choices, app slug and permissions. No new privilege or automatic mode change.
+- Object events need the matching Belmelo backend and Home Assistant’s native MQTT device actions. Actual sensor mode, calibration and physical checks remain separate.
+
 ## 0.25.1 - 11 November 2026
 
 Belmelo name, approved logo and setup wording. Existing app slug, pairing, saved device selections, local opt-out and permissions are retained. No new device access is introduced.
