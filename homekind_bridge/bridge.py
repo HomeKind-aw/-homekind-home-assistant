@@ -22,11 +22,12 @@ import uuid
 import copy
 from control_transport import JsonConnections, HACommands, CommandWake, TransportError, TransportDenied, NotConnected
 
-VERSION = "0.25.1"
+VERSION = "0.25.3"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
 from device_capabilities import EXTRA_DOMAINS, STATES as DEVICE_STATES, SENSOR_CLASSES, BINARY_CLASSES, capabilities as device_capabilities, attributes as device_attributes, action_request, action_matches
+from multistate import OBJECT_ACTIONS, multistate_class, multistate_values, object_action, object_candidates
 
 ENTITY = re.compile(r"^(sensor|binary_sensor|light|switch|media_player|camera|event|weather|vacuum|cover|fan|climate|humidifier|water_heater|lock|valve|alarm_control_panel|siren|lawn_mower)\.[a-z0-9_]{1,150}$")
 
@@ -68,14 +69,14 @@ def button_action(value):
         return None
     return value if value in BUTTON_ACTIONS else BUTTON_ALIASES.get(value)
 
-def mqtt_button_bindings(info, triggers, device_id):
+def mqtt_button_bindings(info, triggers, device_id, normalise=button_action):
     """Use the selected device's HA discovery only; never guess or wildcard MQTT topics."""
     if not isinstance(info, dict) or not isinstance(triggers, list):
         return []
     known = {(t.get("type"), t.get("subtype")) for t in triggers[:128]
              if isinstance(t, dict) and t.get("device_id") == device_id and t.get("domain") == "mqtt"
              and t.get("platform", t.get("trigger")) == "device" and t.get("type") == "action"
-             and isinstance(t.get("subtype"), str) and button_action(t.get("subtype"))}
+             and isinstance(t.get("subtype"), str) and normalise(t.get("subtype"))}
     rows = info.get("triggers")
     if not isinstance(rows, list):
         return []
@@ -86,10 +87,10 @@ def mqtt_button_bindings(info, triggers, device_id):
         if not isinstance(cfg, dict) or not isinstance(cfg.get("type"), str) or not isinstance(cfg.get("subtype"), str) or (cfg.get("type"), cfg.get("subtype")) not in known:
             continue
         topic, payload, template = cfg.get("topic"), cfg.get("payload"), cfg.get("value_template")
-        action = button_action(cfg.get("subtype"))
+        action = normalise(cfg.get("subtype"))
         if not isinstance(topic, str) or not 1 <= len(topic) <= 512 or any(c in topic for c in ("+", "#", "\x00", "{{", "}}")):
             continue
-        if not isinstance(payload, str) or len(payload) > 100 or button_action(payload) != action:
+        if not isinstance(payload, str) or len(payload) > 100 or normalise(payload) != action:
             continue
         # Only the simple standard action field is interpreted. No templates are executed.
         json_action = isinstance(template, str) and re.sub(r"\s+", "", template) == "{{value_json.action}}"
@@ -102,6 +103,9 @@ VACUUM_STATES = {"cleaning", "docked", "returning", "paused", "idle", "error", "
 def reading_class(state):
     """Recognise personal readings explicitly; ordinary room readings stay ordinary."""
     attrs = state.get("attributes", {})
+    multi = multistate_class(state)
+    if multi:
+        return multi
     if str(state.get("entity_id", "")).startswith("vacuum."):
         return "vacuum"
     klass = str(attrs.get("device_class", ""))
@@ -136,7 +140,7 @@ def safe_entity(state):
         return False
     domain = entity.split(".")[0]
     klass = reading_class(state)
-    return domain in EXTRA_DOMAINS or domain in ("light", "switch", "media_player", "camera", "weather", "vacuum") or (domain == "event" and klass in ("doorbell", "button")) or (domain == "sensor" and (klass in SENSOR_CLASSES or klass in HEALTH_UNITS or klass == "" and safe_reading(state))) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
+    return domain in EXTRA_DOMAINS or domain in ("light", "switch", "media_player", "camera", "weather", "vacuum") or (domain == "event" and klass in ("doorbell", "button", "object_action")) or (domain == "sensor" and (klass in ("object_orientation", "object_posture") or klass in SENSOR_CLASSES or klass in HEALTH_UNITS or klass == "" and safe_reading(state))) or (domain == "binary_sensor" and (klass in BINARY_CLASSES or klass == "doorbell"))
 
 def observation(state):
     attrs = state.get("attributes", {})
@@ -155,7 +159,7 @@ def observation(state):
         result.update(unit="", device_class="")
     if state["entity_id"].startswith("event."):
         result["unit"] = ""
-        result["event_type"] = (button_action(attrs.get("event_type")) or "") if reading_class(state) == "button" else "ring" if attrs.get("event_type") in RING_TYPES else ""
+        result["event_type"] = (attrs.get("event_type") if attrs.get("event_type") in OBJECT_ACTIONS else "") if reading_class(state) == "object_action" else (button_action(attrs.get("event_type")) or "") if reading_class(state) == "button" else "ring" if attrs.get("event_type") in RING_TYPES else ""
     if result["device_class"].startswith("health_") and attrs.get("homekind_health_source") in ("garmin_export", "health_file"):
         day = attrs.get("homekind_health_date")
         try:
@@ -205,10 +209,16 @@ def safe_reading(state):
     if state["entity_id"].startswith("camera."):
         return value in ("idle", "streaming", "recording", "on", "off", "unknown", "unavailable")
     if state["entity_id"].startswith("event."):
+        if reading_class(state) == "object_action" and value not in ("unknown", "unavailable"):
+            attrs = state.get("attributes", {})
+            return utc_timestamp(value) > 0 and attrs.get("event_type", state.get("event_type")) in OBJECT_ACTIONS
         return value in ("unknown", "unavailable") or utc_timestamp(value) > 0
     if state["entity_id"].startswith("media_player."):
         return value in ("playing", "paused", "idle", "buffering", "on", "off", "standby", "unknown", "unavailable")
     if state["entity_id"].startswith("sensor."):
+        values = multistate_values(reading_class(state))
+        if values is not None:
+            return value in values | {"unknown", "unavailable"}
         return value in ("unknown", "unavailable") or bool(re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", value)) and math.isfinite(float(value))
     return value in ("on", "off", "unknown", "unavailable")
 
@@ -244,7 +254,7 @@ def bounded_sync(payload):
 def pending_key(reading):
     entity = reading.get("entity_id", "")
     event_id = reading.get("event_id", "")
-    if entity.startswith("event.") and reading.get("device_class") == "button" and reading.get("event_type") in BUTTON_ACTIONS and isinstance(event_id, str) and re.fullmatch(r"[0-9a-f]{64}", event_id):
+    if entity.startswith("event.") and (reading.get("device_class") == "button" and reading.get("event_type") in BUTTON_ACTIONS or reading.get("device_class") == "object_action" and reading.get("event_type") in OBJECT_ACTIONS) and isinstance(event_id, str) and re.fullmatch(r"[0-9a-f]{64}", event_id):
         return entity + "|" + event_id
     return entity
 
@@ -587,7 +597,7 @@ class Connector:
         if source in self.native_button_sources or not entity or entity not in self.allowlist or not isinstance(action, str) or action not in BUTTON_ACTIONS or not -5 <= self.clock() - utc_timestamp(at) <= 10:
             return
         previous = self.current.get(entity)
-        if not previous:
+        if not previous or reading_class(previous) == 'object_action':
             return
         self.accept_state({**previous, "state": at, "last_updated": at, "last_changed": at,
                            "attributes": {**previous["attributes"], "event_type": action}})
@@ -808,7 +818,7 @@ class HAStream:
             if identity.get("ha_platform") != "mqtt" or not device:
                 continue
             # A real selected button event entity already supplies these events.
-            if any(e != virtual and s.get("attributes", {}).get("device_class") == "button"
+            if any(e != virtual and reading_class(s) == reading_class(self.c.current[virtual])
                    and self.c.registry.get(e, {}).get("ha_device_id") == device
                    for e, s in self.c.current.items()):
                 self.c.button_status[virtual] = {"name": self.c.current[virtual]["attributes"]["friendly_name"], "message": "Use the existing Home Assistant button event reading."}
@@ -829,7 +839,8 @@ class HAStream:
                 return
             virtual = self.c.button_sources[source]
             device = self.c.registry.get(source, {}).get("ha_device_id")
-            rows = mqtt_button_bindings(data["mqtt"], data["triggers"], device)
+            normalise = object_action if reading_class(self.c.current[virtual]) == 'object_action' else button_action
+            rows = mqtt_button_bindings(data["mqtt"], data["triggers"], device, normalise=normalise)
             desired = {}
             for row in rows:
                 key = (source, row["topic"], row["json_action"])
@@ -933,7 +944,7 @@ class HAStream:
             self.c.button_sources = {}
             self.c.native_button_sources = set()
             self.c.button_status = {}
-            for button in button_candidates(states, self.c.stamp()):
+            for button in button_candidates(states, self.c.stamp()) + object_candidates(states, self.c.stamp(), allowed=self.c.allowlist):
                 if button["entity_id"] in self.c.allowlist:
                     self.c.button_sources[button["attributes"]["source_entity_id"]] = button["entity_id"]
                     self.c.accept_state(button)
@@ -999,7 +1010,7 @@ class HAStream:
                     "ha_area_name": areas.get(area_id, {}).get("name"), "ha_entity_category": entity.get("entity_category")}.items() if v}
             for source, virtual in self.c.button_sources.items():
                 if source in self.c.registry:
-                    self.c.registry[virtual] = {k:v for k,v in {**self.c.registry[source], "ha_unique_id": "homekind-button-" + source}.items() if k != "ha_entity_category"}
+                    self.c.registry[virtual] = {k:v for k,v in {**self.c.registry[source], "ha_unique_id": ("homekind-object-" if reading_class(self.c.current[virtual]) == "object_action" else "homekind-button-") + source}.items() if k != "ha_entity_category"}
 
     def run(self):
         delay = 2
