@@ -1,3 +1,10 @@
+## 0.25.4 — 16 November 2026
+
+- Refresh idle command connections before reuse and recover one failed connection before authorisation, within the original command deadline.
+- Keep service calls single-attempt when their outcome is uncertain. Current permissions, leases and local controls remain authoritative.
+- Record stage timings even when preparation or authorisation fails.
+- Preserve pairing, selections, settings, local opt-out, app slug and data directory. No additional access is required.
+
 ## 0.25.3 — 14 November 2026
 
 - Read selected P100 object events, orientation and mounting status through Home Assistant. Preserve event types, timestamps and rapid separate actions.

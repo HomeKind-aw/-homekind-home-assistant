@@ -54,10 +54,11 @@ class NotConnected(TransportError):
 
 class JsonConnections:
     """One connection per origin per worker; uncertain POSTs are never retried."""
-    def __init__(self):
+    def __init__(self, clock=time.monotonic):
         self.local = threading.local()
         self.context = ssl.create_default_context()
         self.usage = UsageMeter()
+        self.clock = clock
 
     def request(self, url, token, data=None, timeout=12):
         target = urllib.parse.urlsplit(url)
@@ -66,8 +67,16 @@ class JsonConnections:
         connections = getattr(self.local, 'connections', None)
         if connections is None:
             connections = self.local.connections = {}
+            self.local.last_used = {}
         key = (target.scheme, target.hostname, target.port)
         connection = connections.get(key)
+        # Command workers can be idle for hours while the sensor worker stays
+        # connected. Retire their sockets before the peer's keep-alive expires.
+        if connection is not None and self.clock() - self.local.last_used.get(key, 0) >= 10:
+            connection.close()
+            connections.pop(key, None)
+            self.local.last_used.pop(key, None)
+            connection = None
         if connection is None:
             connection = (http.client.HTTPSConnection(target.hostname, target.port, timeout=timeout, context=self.context)
                           if target.scheme == 'https' else http.client.HTTPConnection(target.hostname, target.port, timeout=timeout))
@@ -92,10 +101,12 @@ class JsonConnections:
                 raise TransportError('HTTP ' + str(response.status))
             answer = json.loads(raw)
             failed = False
+            self.local.last_used[key] = self.clock()
             return answer
         except (OSError, http.client.HTTPException, ValueError, TransportError) as error:
             connection.close()
             connections.pop(key, None)
+            self.local.last_used.pop(key, None)
             if isinstance(error, TransportError):
                 raise
             raise TransportError('Connection unavailable.') from None

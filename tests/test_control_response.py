@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import socket
 from pathlib import Path
 import sys
 import tempfile
@@ -65,6 +66,95 @@ class ControlResponseTests(unittest.TestCase):
                 JsonConnections().request('http://127.0.0.1:' + str(server.server_port), 'synthetic', {}, timeout=1)
             self.assertEqual(len(calls), 1)
         finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_idle_worker_replaces_its_connection_before_the_next_command(self):
+        sockets = []
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+            def do_POST(self):
+                self.rfile.read(int(self.headers['Content-Length']))
+                sockets.append(self.connection)
+                self.send_response(200)
+                self.send_header('Content-Length', '2')
+                self.end_headers()
+                self.wfile.write(b'{}')
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        now = [100]
+        client = JsonConnections(clock=lambda: now[0])
+        url = 'http://127.0.0.1:' + str(server.server_port)
+        try:
+            client.request(url, 'synthetic', {})
+            now[0] += 11
+            client.request(url, 'synthetic', {})
+            self.assertEqual(len(sockets), 2)
+            self.assertIsNot(sockets[0], sockets[1])
+        finally:
+            for connection in client.local.connections.values():
+                connection.close()
+            server.shutdown()
+            server.server_close()
+
+    def test_closed_idle_authorisation_connection_recovers_before_one_light_action(self):
+        received = []
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+            def do_POST(self):
+                self.rfile.read(int(self.headers['Content-Length']))
+                received.append(self.path)
+                value = {'entity_id': 'light.fixture', 'domain': 'light', 'service': 'turn_on',
+                         'desired': 'on', 'expires_at': '2099-01-01T00:00:00Z'} if self.path == '/authorize' else {}
+                data = json.dumps(value).encode()
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                self.wfile.flush()
+                if self.path == '/warmup':
+                    self.close_connection = True
+                    self.connection.shutdown(socket.SHUT_RDWR)
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        client = JsonConnections()
+        url = 'http://127.0.0.1:' + str(server.server_port)
+        calls = []
+        def request(target, token, data=None):
+            calls.append((target, data))
+            if '/states/' in target:
+                sent = any('/services/' in address for address, _ in calls)
+                stamp = '2026-11-16T00:00:01Z' if sent else '2026-11-16T00:00:00Z'
+                return {'entity_id': 'light.fixture', 'state': 'on' if sent else 'off',
+                        'attributes': {}, 'last_updated': stamp, 'last_changed': stamp}
+            if target.endswith('/authorize'):
+                try:
+                    return client.request(url + '/authorize', 'synthetic', {}, timeout=1)
+                except TransportError as error:
+                    raise bridge.BridgeError(str(error)) from None
+            return {}
+        try:
+            client.request(url + '/warmup', 'synthetic', {}, timeout=1)
+            with tempfile.TemporaryDirectory() as directory:
+                c = bridge.Connector({'read_only': False, 'entity_ids': ['light.fixture']}, directory, request=request)
+                c.ha_token = 'synthetic'
+                c.credentials['bridge_id'] = 'synthetic'
+                c.tracked = [{'entity_id': 'light.fixture', 'control_enabled': True}]
+                c.execute({'id': 'synthetic-command', 'lease_id': 'synthetic-lease',
+                           'entity_id': 'light.fixture', 'expires_at': '2099-01-01T00:00:00Z'})
+            self.assertEqual(sum(address.endswith('/authorize') for address, _ in calls), 2)
+            self.assertEqual(received.count('/authorize'), 1)
+            self.assertEqual(sum('/services/' in address for address, _ in calls), 1)
+            self.assertEqual(calls[-1][1]['status'], 'confirmed')
+        finally:
+            for connection in client.local.connections.values():
+                connection.close()
             server.shutdown()
             server.server_close()
 
