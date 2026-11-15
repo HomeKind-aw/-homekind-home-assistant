@@ -22,7 +22,7 @@ import uuid
 import copy
 from control_transport import JsonConnections, HACommands, CommandWake, TransportError, TransportDenied, NotConnected
 
-VERSION = "0.25.3"
+VERSION = "0.25.4"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -445,6 +445,24 @@ class Connector:
     def stopping(self):
         return self.halt.is_set() or self.external_stop.is_set()
 
+    def authorise_claim(self, claim):
+        # No Home Assistant service has been sent at this point. A closed idle
+        # connection may be replaced once, using the same unexpired lease.
+        # If the first request reached the server, its dispatched status makes
+        # the second request fail closed; it cannot authorise another action.
+        for attempt in range(2):
+            if self.stopping():
+                raise BridgeError("Command stopped before dispatch.")
+            if claim.get("expires_at") and utc_timestamp(claim["expires_at"]) <= self.clock():
+                raise BridgeError("Command has expired.")
+            try:
+                return self.cloud("authorize", {"command_id": claim["id"], "lease_id": claim["lease_id"]})
+            except AccessEnded:
+                raise
+            except BridgeError as error:
+                if attempt or str(error) != "Connection unavailable.":
+                    raise
+
     def execute(self, claim):
         if self.read_only:
             raise BridgeError("This connector is read-only.")
@@ -466,9 +484,11 @@ class Connector:
             if self.stopping():
                 return
             prepared = time.monotonic()
-            command = self.cloud("authorize", {"command_id": claim["id"], "lease_id": claim["lease_id"]})
             times["prepare_ms"] = (prepared-started)*1000
-            times["authorize_ms"] = (time.monotonic()-prepared)*1000
+            try:
+                command = self.authorise_claim(claim)
+            finally:
+                times["authorize_ms"] = (time.monotonic()-prepared)*1000
             if command["entity_id"] != entity:
                 raise BridgeError("Control target changed.")
             try:
@@ -531,6 +551,8 @@ class Connector:
         # Never retry a service call after a transport failure or lost acknowledgement.
         if command is not None and not self.stopping():
             self.cloud("ack", {"command_id": claim["id"], "lease_id": claim["lease_id"], "status": result, "observation": observed})
+        if not self.stopping():
+            times.setdefault("prepare_ms", (time.monotonic()-started)*1000)
             times["connector_total_ms"] = (time.monotonic()-started)*1000
             self.timing("device", claim, times)
 
