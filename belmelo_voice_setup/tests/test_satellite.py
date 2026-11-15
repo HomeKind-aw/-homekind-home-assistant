@@ -107,3 +107,18 @@ class SatelliteTests(unittest.IsolatedAsyncioTestCase):
         self.client.sync.return_value={'test':{'id':'single','status':'command','mode':'single_phrase'}}
         await self.connection.poll()
         self.satellite.async_intercept_wake_word.assert_not_awaited()
+    async def test_unload_while_status_is_in_flight_cannot_connect_or_change_local_phrase(self):
+        started, release = asyncio.Event(), asyncio.Event()
+        async def slow_sync(*args):
+            started.set()
+            await release.wait()
+            return {'connection_request':self.request(), 'wake_word':'jarvis'}
+        self.client.sync.side_effect=slow_sync
+        pending=asyncio.create_task(self.connection.poll())
+        await started.wait()
+        await self.connection.close()
+        release.set()
+        await pending
+        self.hass.services.async_call.assert_not_awaited()
+        self.satellite.async_set_configuration.assert_not_awaited()
+        self.assertFalse(await self.connection.connect(self.request()))

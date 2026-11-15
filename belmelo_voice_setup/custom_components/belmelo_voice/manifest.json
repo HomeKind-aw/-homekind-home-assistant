@@ -1,7 +1,7 @@
 {
   "domain": "belmelo_voice",
   "name": "Belmelo Voice",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "config_flow": true,
   "documentation": "https://github.com/HomeKind-aw/-homekind-home-assistant/tree/main/belmelo_voice_setup",
   "issue_tracker": "https://github.com/HomeKind-aw/-homekind-home-assistant/issues",

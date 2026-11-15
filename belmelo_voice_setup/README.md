@@ -1,4 +1,4 @@
-# Belmelo Voice setup 0.3.0 — 15 November 2026
+# Belmelo Voice setup 0.3.1 — 15 November 2026
 
 This one-time installer prepares existing ESPHome Assist microphones for Ask Belle. Microphone firmware, pairing and existing home permissions are kept. Everyday choices stay in **Ask Belle → More options → Set up room microphones**.
 
@@ -24,7 +24,7 @@ The trained **Hey Belle 0.1.0** model is an optional household pilot. The option
 
 For a microphone already paired with Belle:
 
-1. In setup **0.3.0**, tick **Include the Hey Belle pilot**, then choose **Prepare Belle** and restart Home Assistant once.
+1. In setup **0.3.1**, tick **Include the Hey Belle pilot**, then choose **Prepare Belle** and restart Home Assistant once.
 2. Return to the guided microphone screen in Belmelo. Open **Change wake phrase**, select **Hey Belle · pilot**, then choose **Use this phrase**. A compatible satellite downloads the fixed model locally. Wait for its actual active-phrase report.
 3. Complete the one-phrase spoken check, then check a real home command in that room.
 

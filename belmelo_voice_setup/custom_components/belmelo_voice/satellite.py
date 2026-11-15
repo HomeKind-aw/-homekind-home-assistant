@@ -25,7 +25,7 @@ class SatelliteConnection:
 
     async def connect(self, request):
         """One explicit, expiring choice; select only this entry's Belle pipeline."""
-        if not isinstance(request, dict) or set(request) != {'id', 'expires_at'}:
+        if self.closed or not isinstance(request, dict) or set(request) != {'id', 'expires_at'}:
             return False
         try:
             ident = str(UUID(request['id']))
@@ -112,6 +112,8 @@ class SatelliteConnection:
                 response = await self.client.sync(self.runtime(), event)
             except Exception:
                 # No audio, tokens, transcripts or provider responses in logs.
+                return
+            if self.closed:
                 return
             if event and self.events and self.events[0] is event:
                 self.events.pop(0)
