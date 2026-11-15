@@ -1,0 +1,18 @@
+{
+  "type": "micro",
+  "wake_word": "Hey Belle",
+  "author": "Belmelo",
+  "website": "https://app.belmelo.com",
+  "model": "belmelo_hey_belle_pilot_v1.tflite",
+  "version": 2,
+  "trained_languages": [
+    "en"
+  ],
+  "micro": {
+    "probability_cutoff": 0.94,
+    "sliding_window_size": 8,
+    "feature_step_size": 10,
+    "tensor_arena_size": 98304,
+    "minimum_esphome_version": "2026.10.0"
+  }
+}

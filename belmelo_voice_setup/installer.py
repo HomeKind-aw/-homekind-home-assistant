@@ -1,7 +1,8 @@
-"""One-time ingress installer. Writes only our integration; never restarts Core."""
+"""One-time ingress installer for our integration and optional pilot models."""
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 import hmac
+import hashlib
 import html
 import json
 import secrets
@@ -10,6 +11,69 @@ import time
 from urllib.parse import parse_qs
 
 NONCE = secrets.token_urlsafe(32)
+MODEL_SOURCE = Path('/opt/belmelo/wake_words')
+MODEL_IDS = {'belmelo_hey_belle_pilot_v1':'Hey Belle', 'belmelo_okay_belle_pilot_v1':'Okay Belle'}
+
+
+def install_models(source=MODEL_SOURCE, config=Path('/homeassistant')):
+    """Add only the fixed, hash-verified package; never activate a microphone."""
+    if source.is_symlink() or not source.is_dir() or any(p.is_symlink() for p in source.rglob('*')):
+        raise ValueError('The packaged wake words need a local check.')
+    release = json.loads((source/'release.json').read_text())
+    if release.get('status') != 'experimental' or release.get('physical_acceptance') is not False:
+        raise ValueError('The pilot status could not be verified.')
+    models = release.get('models', [])
+    ids={m.get('id') for m in models}
+    if not 1<=len(models)<=len(MODEL_IDS) or len(ids)!=len(models) or not ids.issubset(MODEL_IDS):
+        raise ValueError('The pilot catalogue could not be verified.')
+    payload = {}
+    for entry in models:
+        word_id = entry['id']
+        expected = {word_id+'.json', word_id+'.tflite'}
+        if set(entry.get('files', {})) != expected:
+            raise ValueError('The pilot files could not be verified.')
+        for name, digest in entry['files'].items():
+            content = (source/name).read_bytes()
+            if not hmac.compare_digest(hashlib.sha256(content).hexdigest(), digest):
+                raise ValueError('A pilot file failed its integrity check.')
+            payload[name] = content
+        manifest = json.loads(payload[word_id+'.json'])
+        if manifest.get('type') != 'micro' or manifest.get('version') != 2 or manifest.get('wake_word') != MODEL_IDS[word_id] or manifest.get('model') != word_id+'.tflite':
+            raise ValueError('The wake-word manifest could not be verified.')
+        model = payload[word_id+'.tflite']
+        if not 100 < len(model) < 262144 or model[4:8] != b'TFL3':
+            raise ValueError('The wake-word model could not be verified.')
+    target = config/'custom_wake_words'
+    if config.is_symlink() or target.is_symlink():
+        raise ValueError('The custom wake-word folder needs a local check.')
+    # Validate every destination before creating or replacing anything. A local
+    # custom model with our ID is preserved, never silently overwritten.
+    for name, content in payload.items():
+        existing = target/name
+        if existing.is_symlink() or existing.exists() and (not existing.is_file() or existing.read_bytes() != content):
+            raise ValueError('An existing wake word with this ID has been preserved.')
+    target.mkdir(exist_ok=True)
+    staged = target/('.belmelo_setup_'+secrets.token_hex(8))
+    created = []
+    staged.mkdir()
+    try:
+        for name, content in payload.items():
+            if (target/name).exists():
+                continue
+            (staged/name).write_bytes(content)
+        for path in list(staged.iterdir()):
+            destination = target/path.name
+            # The destination was absent at preflight; do not overwrite a
+            # concurrent local write between validation and publication.
+            destination.hardlink_to(path)
+            created.append(destination)
+    except Exception:
+        for path in created:
+            path.unlink(missing_ok=True)
+        raise
+    finally:
+        shutil.rmtree(staged)
+    return len(created)
 
 def install(source=Path('/opt/belmelo/custom_components/belmelo_voice'), config=Path('/homeassistant'), data=Path('/data')):
     if source.is_symlink() or not source.is_dir():
@@ -60,7 +124,11 @@ class Handler(BaseHTTPRequestHandler):
             + ('<p class="status" role="status">' + html.escape(message) + '</p>' if message else '')
             + '<form method="post"><input type="hidden" name="nonce" value="' + NONCE + '"><button>Install integration</button></form>'
             '<ol><li>After installation, restart Home Assistant once from Settings → System.</li><li>Open Belmelo → Ask Belle → More options → Room microphones. Choose the room and features, then create a pairing code.</li><li>In Home Assistant, add the Belmelo Voice integration under Devices &amp; services. Paste the code and select the matching ESPHome microphone.</li><li>Check that the microphone uses its dedicated Belle assistant. Try a light command and check both the lights and reply.</li></ol>'
-            '<p>You can remove this setup app after pairing. Pause room microphone access at any time in Belmelo.</p></main></html>').encode()
+            '<p>You can remove this setup app after pairing. Pause room microphone access at any time in Belmelo.</p>'
+            + ('<details><summary>Try the Belle wake-word pilot</summary><p>Add the experimental <b>Hey Belle</b> model for a spoken test on your microphone. It has software test results; household accuracy is still being checked.</p>'
+               '<form method="post"><input type="hidden" name="nonce" value="' + NONCE + '"><button name="operation" value="models">Add pilot wake words</button></form>'
+               '<p>Restart Home Assistant once, then open Belmelo → Ask Belle → More options → Room microphones → Test. Choose a phrase and use the microphone test. Your current phrase stays selected until you choose another. A compatible ESPHome satellite downloads the model from Home Assistant over your home network.</p></details>' if (MODEL_SOURCE/'release.json').is_file() else '')
+            + '</main></html>').encode()
         self.send_response(status)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
@@ -82,8 +150,15 @@ class Handler(BaseHTTPRequestHandler):
             if not hmac.compare_digest(form.get('nonce', [''])[0], NONCE):
                 self.page('Open setup again to continue.', 403)
                 return
-            install()
-            self.page('Integration installed. Restart Home Assistant once, then add Belmelo Voice using your pairing code.')
+            operation=form.get('operation', ['integration'])[0]
+            if operation=='models':
+                install_models()
+                self.page('Pilot wake words added. Restart Home Assistant once, then choose a phrase and test it in Belmelo. Existing microphone pairing is kept.')
+            elif operation=='integration':
+                install()
+                self.page('Integration installed. Restart Home Assistant once. Existing pairing is kept; new microphones need a pairing code.')
+            else:
+                self.page('Open setup again to continue.', 400)
         except Exception:
             self.page('Installation needs a local check. The existing Home Assistant configuration has been preserved.', 500)
 

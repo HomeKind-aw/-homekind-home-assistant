@@ -1,0 +1,101 @@
+{
+  "target": "okay_belle",
+  "model_sha256": "ee371242dd8fcbb72ffd868c0aa3a109fa4d62ee36452246484071bef1141a26",
+  "selection": "validation only; zero real-speech events and <=1% hard/other phrase acceptance preferred",
+  "exploratory_pilot": false,
+  "validation": {
+    "cutoff": 0.995,
+    "sliding_window_size": 5,
+    "groups": {
+      "quiet": {
+        "detected": 110,
+        "total": 160,
+        "rate": 0.6875
+      },
+      "procedural_noise": {
+        "detected": 106,
+        "total": 160,
+        "rate": 0.6625
+      },
+      "hard_negative": {
+        "detected": 0,
+        "total": 300,
+        "rate": 0.0
+      },
+      "other_phrase": {
+        "detected": 0,
+        "total": 320,
+        "rate": 0.0
+      },
+      "ordinary_negative": {
+        "detected": 0,
+        "total": 132,
+        "rate": 0.0
+      },
+      "similar_phrase": {
+        "detected": 0,
+        "total": 168,
+        "rate": 0.0
+      }
+    },
+    "positive_recall": 0.675,
+    "real_speech": {
+      "events": 1,
+      "hours": 0.8034930729166667,
+      "false_activations_per_hour": 1.2445658011338123,
+      "frontend_seconds": 2887.38
+    }
+  },
+  "physical_acceptance": false,
+  "testing": {
+    "cutoff": 0.995,
+    "sliding_window_size": 5,
+    "groups": {
+      "quiet": {
+        "detected": 108,
+        "total": 160,
+        "rate": 0.675
+      },
+      "procedural_noise": {
+        "detected": 102,
+        "total": 160,
+        "rate": 0.6375
+      },
+      "hard_negative": {
+        "detected": 3,
+        "total": 300,
+        "rate": 0.01
+      },
+      "other_phrase": {
+        "detected": 0,
+        "total": 320,
+        "rate": 0.0
+      },
+      "ordinary_negative": {
+        "detected": 0,
+        "total": 132,
+        "rate": 0.0
+      },
+      "similar_phrase": {
+        "detected": 3,
+        "total": 168,
+        "rate": 0.017857142857142856
+      }
+    },
+    "positive_recall": 0.65625,
+    "real_speech": {
+      "events": 0,
+      "hours": 0.8077264756944441,
+      "false_activations_per_hour": 0.0,
+      "frontend_seconds": 2902.92
+    }
+  },
+  "pilot_offline_gate_passed": false,
+  "limitations": [
+    "Synthetic positive voices are held out by speaker, but use one US-English TTS system.",
+    "No Australian household or television audio was used for acceptance.",
+    "The real-speech exposure is short; zero events does not establish a long-term false-wake rate.",
+    "Quiet and noisy versions share utterances; they are not independent speakers.",
+    "Host TFLite streaming inference is not a physical microphone test."
+  ]
+}

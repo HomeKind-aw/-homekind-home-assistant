@@ -2,6 +2,7 @@
 import asyncio
 import importlib.util
 import io
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -94,6 +95,69 @@ class VoiceTests(unittest.IsolatedAsyncioTestCase):
                 await client._request(self.session, data={'operation':'speak'})
 
 class InstallTests(unittest.TestCase):
+    def test_actual_packaged_pilot_integrity_and_gate_are_preserved(self):
+        release=json.loads((ROOT/'wake_words/release.json').read_text())
+        self.assertEqual(release['status'],'experimental')
+        self.assertFalse(release['physical_acceptance'])
+        self.assertFalse(release['original_strict_gate_passed'])
+        self.assertEqual([m['id'] for m in release['models']],['belmelo_hey_belle_pilot_v1'])
+        with tempfile.TemporaryDirectory() as tmp:
+            config=Path(tmp)
+            self.assertEqual(installer.install_models(ROOT/'wake_words',config),2)
+            self.assertEqual(installer.install_models(ROOT/'wake_words',config),0)
+
+    def pilot_package(self, root):
+        source=root/'models';source.mkdir()
+        release={'status':'experimental','physical_acceptance':False,'models':[]}
+        for word_id, phrase in installer.MODEL_IDS.items():
+            manifest={'type':'micro','version':2,'wake_word':phrase,'model':word_id+'.tflite'}
+            files={word_id+'.json':json.dumps(manifest).encode(),word_id+'.tflite':b'\x00'*4+b'TFL3'+b'\x00'*120}
+            for name,content in files.items():(source/name).write_bytes(content)
+            release['models'].append({'id':word_id,'files':{n:hashlib.sha256(b).hexdigest() for n,b in files.items()}})
+        (source/'release.json').write_text(json.dumps(release))
+        return source
+
+    def test_pilot_models_are_idempotent_and_preserve_local_configuration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=self.pilot_package(root);config=root/'config';config.mkdir()
+            (config/'configuration.yaml').write_text('local choices')
+            target=config/'custom_wake_words';target.mkdir();(target/'another_model.json').write_text('local model')
+            self.assertEqual(installer.install_models(source,config),4)
+            self.assertEqual(installer.install_models(source,config),0)
+            self.assertEqual((config/'configuration.yaml').read_text(),'local choices')
+            self.assertEqual((target/'another_model.json').read_text(),'local model')
+
+    def test_pilot_integrity_failure_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=self.pilot_package(root);config=root/'config';config.mkdir()
+            (source/'belmelo_hey_belle_pilot_v1.tflite').write_bytes(b'corrupt')
+            with self.assertRaises(ValueError):installer.install_models(source,config)
+            self.assertFalse((config/'custom_wake_words').exists())
+
+    def test_pilot_id_collision_and_symlink_preserve_existing_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=self.pilot_package(root);config=root/'config';config.mkdir()
+            target=config/'custom_wake_words';target.mkdir();local=target/'belmelo_hey_belle_pilot_v1.json';local.write_text('local custom model')
+            with self.assertRaises(ValueError):installer.install_models(source,config)
+            self.assertEqual(list(target.iterdir()),[local])
+            self.assertEqual(local.read_text(),'local custom model')
+            local.unlink();target.rmdir();target.symlink_to(source,target_is_directory=True)
+            with self.assertRaises(ValueError):installer.install_models(source,config)
+
+    def test_pilot_partial_write_is_rolled_back(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);source=self.pilot_package(root);config=root/'config';config.mkdir()
+            original=Path.hardlink_to
+            count=0
+            def fail_second(path,other):
+                nonlocal count
+                count+=1
+                if count==2:raise OSError('fictional disk failure')
+                return original(path,other)
+            with patch.object(Path,'hardlink_to',fail_second):
+                with self.assertRaises(OSError):installer.install_models(source,config)
+            self.assertEqual(list((config/'custom_wake_words').iterdir()),[])
+
     def test_install_upgrade_preserves_configuration_and_backs_up_only_own_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
             config=Path(tmp)/'config'; config.mkdir(); (config/'configuration.yaml').write_text('unchanged')

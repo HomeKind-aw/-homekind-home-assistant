@@ -1,5 +1,5 @@
 name: Belmelo Voice setup
-version: 0.2.0
+version: 0.2.1
 slug: belmelo_voice_setup
 description: Install the scoped Ask Belle voice integration, then pair a chosen room microphone in Belmelo.
 url: https://github.com/HomeKind-aw/-homekind-home-assistant/tree/main/belmelo_voice_setup

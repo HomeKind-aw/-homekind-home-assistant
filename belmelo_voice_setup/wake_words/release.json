@@ -1,0 +1,22 @@
+{
+  "version": "0.1.0",
+  "date": "2026-11-15",
+  "status": "experimental",
+  "decision": "Opt-in household pilot only; not a production acceptance result",
+  "physical_acceptance": false,
+  "original_strict_gate_passed": false,
+  "models": [
+    {
+      "id": "belmelo_hey_belle_pilot_v1",
+      "wake_word": "Hey Belle",
+      "bytes": 51072,
+      "files": {
+        "belmelo_hey_belle_pilot_v1.json": "7913113969f2f109de78aa10b76b2bcfc6887f8740354ffa091d6a0f3cd7aaa6",
+        "belmelo_hey_belle_pilot_v1.tflite": "bb677dce2058452efdba2c85efcb47e679b11e0f7a6dba59916bb8121b237f69"
+      }
+    }
+  ],
+  "rejected_comparison": "Okay Belle: weaker held-out detection; not included in the installer",
+  "activation": "Copying files does not change the active wake word; select a model reported by the actual satellite in Belmelo",
+  "tensor_arena": "98304-byte manifest budget; physical Micro interpreter allocation and latency remain unverified"
+}

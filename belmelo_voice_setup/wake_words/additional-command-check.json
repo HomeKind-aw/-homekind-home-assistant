@@ -1,0 +1,1467 @@
+{
+  "target": "hey_belle",
+  "model_sha256": "bb677dce2058452efdba2c85efcb47e679b11e0f7a6dba59916bb8121b237f69",
+  "settings_frozen_before_test": true,
+  "groups": {
+    "quiet": {
+      "detected": 78,
+      "total": 80,
+      "rate": 0.975,
+      "detected_before_command_end": 78,
+      "keyword_latency_median_seconds": 0.16759219104308432,
+      "keyword_latency_p90_seconds": 0.22548582766439895
+    },
+    "procedural_noise": {
+      "detected": 71,
+      "total": 80,
+      "rate": 0.8875,
+      "detected_before_command_end": 71,
+      "keyword_latency_median_seconds": 0.16883106575963736,
+      "keyword_latency_p90_seconds": 0.22086352040816326
+    }
+  },
+  "results": [
+    {
+      "id": "hey_belle-testing-00000",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.045496315192743886,
+      "command_onset_latency_seconds": -0.14026332199546465,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00000",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.039433815192743804,
+      "command_onset_latency_seconds": -0.14632582199546473,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00001",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.2215059523809526,
+      "command_onset_latency_seconds": 0.16345606575963745,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00001",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00002",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.18218083900226784,
+      "command_onset_latency_seconds": 0.08930102040816346,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00002",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.17636833900226762,
+      "command_onset_latency_seconds": 0.08348852040816324,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00003",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.11865858843537447,
+      "command_onset_latency_seconds": 0.0373887471655332,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00003",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.17172108843537426,
+      "command_onset_latency_seconds": 0.09045124716553299,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00004",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.13855342970521534,
+      "command_onset_latency_seconds": -0.04720620748299331,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00004",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.11617842970521552,
+      "command_onset_latency_seconds": -0.06958120748299312,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00005",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.19189356575963734,
+      "command_onset_latency_seconds": -0.15640575396825385,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00005",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.16883106575963736,
+      "command_onset_latency_seconds": -0.17946825396825383,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00006",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.15798852040816325,
+      "command_onset_latency_seconds": 0.11154861111111114,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00006",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.22086352040816326,
+      "command_onset_latency_seconds": 0.17442361111111115,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00007",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.19630824829931975,
+      "command_onset_latency_seconds": -0.12877111678004527,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00007",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.21630824829931977,
+      "command_onset_latency_seconds": -0.10877111678004525,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00008",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.16136352040816337,
+      "command_onset_latency_seconds": 0.05687372448979611,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00008",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.14398852040816346,
+      "command_onset_latency_seconds": 0.03949872448979619,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00009",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.18027338435374135,
+      "command_onset_latency_seconds": -0.16802593537414978,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00009",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.20171088435374157,
+      "command_onset_latency_seconds": -0.14658843537414956,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00010",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.17869345238095202,
+      "command_onset_latency_seconds": -0.1579958900226761,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00010",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.18588095238095215,
+      "command_onset_latency_seconds": -0.150808390022676,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00011",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.14509608843537458,
+      "command_onset_latency_seconds": 0.08704620181405942,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00011",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.15290858843537414,
+      "command_onset_latency_seconds": 0.09485870181405898,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00012",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.07497349773242612,
+      "command_onset_latency_seconds": 0.0053136337868479044,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00012",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.0798484977324263,
+      "command_onset_latency_seconds": 0.01018863378684809,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00013",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.18712074829931985,
+      "command_onset_latency_seconds": 0.047801020408163364,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00013",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.19399574829931981,
+      "command_onset_latency_seconds": 0.05467602040816333,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00014",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.11838095238095225,
+      "command_onset_latency_seconds": 0.013891156462584875,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00014",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.10313095238095227,
+      "command_onset_latency_seconds": -0.0013588435374151109,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00015",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1425810657596377,
+      "command_onset_latency_seconds": -0.14766836734693833,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00015",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.16601856575963725,
+      "command_onset_latency_seconds": -0.12423086734693878,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00016",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1036009070294785,
+      "command_onset_latency_seconds": -0.17503854875283442,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00016",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.12878840702947886,
+      "command_onset_latency_seconds": -0.14985104875283406,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00017",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.21081604308390023,
+      "command_onset_latency_seconds": 0.036666383219954635,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00017",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.20931604308390062,
+      "command_onset_latency_seconds": 0.03516638321995502,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00018",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.21058347505668928,
+      "command_onset_latency_seconds": -0.3583054138321995,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00018",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00019",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.12896386054421793,
+      "command_onset_latency_seconds": 0.047694019274376664,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00019",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.16621386054421772,
+      "command_onset_latency_seconds": 0.08494401927437645,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00020",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.17637074829932003,
+      "command_onset_latency_seconds": 0.10671088435374182,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00020",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.18024574829931989,
+      "command_onset_latency_seconds": 0.11058588435374167,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00021",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.2785209750566895,
+      "command_onset_latency_seconds": 0.22047108843537433,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00021",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.246145975056689,
+      "command_onset_latency_seconds": 0.18809608843537384,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00022",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.17983588435374193,
+      "command_onset_latency_seconds": 0.017296201814059442,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00022",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.19789838435374202,
+      "command_onset_latency_seconds": 0.035358701814059534,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00023",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1506784297052155,
+      "command_onset_latency_seconds": 0.057798611111111176,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00023",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.13061592970521563,
+      "command_onset_latency_seconds": 0.0377361111111113,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00024",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.26764838435374155,
+      "command_onset_latency_seconds": 0.18637854308390034,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00024",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00025",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1543310657596374,
+      "command_onset_latency_seconds": -0.043038548752834305,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00025",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1843310657596372,
+      "command_onset_latency_seconds": -0.0130385487528345,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00026",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.18677097505668927,
+      "command_onset_latency_seconds": -0.10347845804988665,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00026",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.20908347505668967,
+      "command_onset_latency_seconds": -0.08116595804988624,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00027",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.16224333900226767,
+      "command_onset_latency_seconds": -0.02351629818594092,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00027",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1501183390022675,
+      "command_onset_latency_seconds": -0.035641298185941084,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00028",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.02235388321995513,
+      "command_onset_latency_seconds": -0.337555413832199,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00028",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.024416383219954763,
+      "command_onset_latency_seconds": -0.33549291383219937,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00029",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1567811791383219,
+      "command_onset_latency_seconds": 0.06390136054421769,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00029",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.15628117913832218,
+      "command_onset_latency_seconds": 0.06340136054421797,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00030",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.23872590702947843,
+      "command_onset_latency_seconds": 0.1342361111111111,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00030",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.23935090702947875,
+      "command_onset_latency_seconds": 0.13486111111111143,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00031",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.21830102040816346,
+      "command_onset_latency_seconds": -0.17643820861677983,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00031",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.19236352040816307,
+      "command_onset_latency_seconds": -0.20237570861678023,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00032",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.14288095238095289,
+      "command_onset_latency_seconds": -0.08931859410430787,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00032",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.15825595238095214,
+      "command_onset_latency_seconds": -0.07394359410430862,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00033",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.18750113378684785,
+      "command_onset_latency_seconds": -0.17240816326530628,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00033",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.16725113378684797,
+      "command_onset_latency_seconds": -0.19265816326530616,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00034",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.16428358843537383,
+      "command_onset_latency_seconds": -0.3233354591836739,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00034",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.16565858843537418,
+      "command_onset_latency_seconds": -0.32196045918367355,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00035",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.2044434523809524,
+      "command_onset_latency_seconds": 0.030293792517006812,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00035",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.20300595238095265,
+      "command_onset_latency_seconds": 0.028856292517007054,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00036",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00036",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00037",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1648509070294783,
+      "command_onset_latency_seconds": 0.08358106575963709,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00037",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.12560090702947874,
+      "command_onset_latency_seconds": 0.04433106575963752,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00038",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1424134070294782,
+      "command_onset_latency_seconds": -0.0433462301587304,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00038",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.14453840702947812,
+      "command_onset_latency_seconds": -0.04122123015873047,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00039",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.10025354308390033,
+      "command_onset_latency_seconds": -0.27126573129251697,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00039",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1280035430839005,
+      "command_onset_latency_seconds": -0.2435157312925168,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00040",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.22762074829931916,
+      "command_onset_latency_seconds": 0.15796088435374095,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00040",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00041",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.190305839002268,
+      "command_onset_latency_seconds": 0.07420606575963762,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00041",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.19355583900226753,
+      "command_onset_latency_seconds": 0.07745606575963715,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00042",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.15280102040816335,
+      "command_onset_latency_seconds": -0.43930782312925154,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00042",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1727385204081635,
+      "command_onset_latency_seconds": -0.4193703231292514,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00043",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1678533163265309,
+      "command_onset_latency_seconds": -0.006296343537414706,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00043",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.17641581632653047,
+      "command_onset_latency_seconds": 0.0022661564625848785,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00044",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1736033163265308,
+      "command_onset_latency_seconds": 0.05750354308390049,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00044",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1796658163265309,
+      "command_onset_latency_seconds": 0.06356604308390057,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00045",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.2571081349206352,
+      "command_onset_latency_seconds": 0.21066822562358306,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00045",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00046",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.152583475056689,
+      "command_onset_latency_seconds": -0.2885956632653064,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00046",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.13677097505668945,
+      "command_onset_latency_seconds": -0.30440816326530595,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00047",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00047",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00048",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.09628599773242619,
+      "command_onset_latency_seconds": 0.003406179138321863,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00048",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.09466099773242642,
+      "command_onset_latency_seconds": 0.0017811791383220976,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00049",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.23017063492063494,
+      "command_onset_latency_seconds": 0.17212074829931973,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00049",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.247295634920635,
+      "command_onset_latency_seconds": 0.18924574829931978,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00050",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1751333616780048,
+      "command_onset_latency_seconds": -0.10350609410430811,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00050",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.18738336167800468,
+      "command_onset_latency_seconds": -0.09125609410430824,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00051",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.17467120181405904,
+      "command_onset_latency_seconds": -0.3361678004535147,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00051",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.29467120181405915,
+      "command_onset_latency_seconds": -0.21616780045351458,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00052",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.08691099773242628,
+      "command_onset_latency_seconds": -0.34265816326530607,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00052",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.09484849773242643,
+      "command_onset_latency_seconds": -0.3347206632653059,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00053",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.21716581632653054,
+      "command_onset_latency_seconds": 0.13589597505668927,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00053",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.2231033163265309,
+      "command_onset_latency_seconds": 0.14183347505668964,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00054",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.16733106575963774,
+      "command_onset_latency_seconds": -0.15774829931972734,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00054",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1402685657596373,
+      "command_onset_latency_seconds": -0.18481079931972777,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00055",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.23100595238095267,
+      "command_onset_latency_seconds": -0.036023526077097245,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00055",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00056",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.0735510204081633,
+      "command_onset_latency_seconds": -0.05415873015873007,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00056",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.06667602040816334,
+      "command_onset_latency_seconds": -0.06103373015873004,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00057",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.2245708616780046,
+      "command_onset_latency_seconds": 0.15491099773242634,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00057",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.21650836167800475,
+      "command_onset_latency_seconds": 0.14684849773242648,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00058",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.18761592970521557,
+      "command_onset_latency_seconds": 0.11795606575963735,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00058",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.18305342970521554,
+      "command_onset_latency_seconds": 0.11339356575963733,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00059",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.20595606575963743,
+      "command_onset_latency_seconds": 0.13629620181405921,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00059",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.2223935657596373,
+      "command_onset_latency_seconds": 0.1527337018140591,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00060",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.10275113378684819,
+      "command_onset_latency_seconds": -0.23393820861677994,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00060",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.08012613378684807,
+      "command_onset_latency_seconds": -0.25656320861678006,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00061",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.16028599773242624,
+      "command_onset_latency_seconds": 0.09062613378684803,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00061",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1669734977324262,
+      "command_onset_latency_seconds": 0.09731363378684799,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00062",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.21271329365079372,
+      "command_onset_latency_seconds": 0.1546634070294785,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00062",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.21821329365079378,
+      "command_onset_latency_seconds": 0.16016340702947857,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00063",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.1963659297052156,
+      "command_onset_latency_seconds": -0.024223639455782098,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00063",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.24392842970521533,
+      "command_onset_latency_seconds": 0.023338860544217632,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00064",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.11075595238095226,
+      "command_onset_latency_seconds": -0.1214435941043085,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00064",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.09463095238095254,
+      "command_onset_latency_seconds": -0.13756859410430822,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00065",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.08508347505668912,
+      "command_onset_latency_seconds": -0.06584623015873037,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00065",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1015834750566893,
+      "command_onset_latency_seconds": -0.04934623015873019,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00066",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.12014597505668956,
+      "command_onset_latency_seconds": 0.004046201814059236,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00066",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1292084750566893,
+      "command_onset_latency_seconds": 0.013108701814058987,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00067",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.19995068027210877,
+      "command_onset_latency_seconds": -0.10190873015873025,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00067",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.20938818027210898,
+      "command_onset_latency_seconds": -0.09247123015873004,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00068",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.20529322562358315,
+      "command_onset_latency_seconds": 0.07758347505668972,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00068",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.20429322562358282,
+      "command_onset_latency_seconds": 0.07658347505668939,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00069",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.10058347505668896,
+      "command_onset_latency_seconds": -0.22449589002267611,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00069",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.09220847505668939,
+      "command_onset_latency_seconds": -0.2328708900226757,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00070",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.12153840702947843,
+      "command_onset_latency_seconds": -0.16871102607709754,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00070",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.12760090702947852,
+      "command_onset_latency_seconds": -0.16264852607709746,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00071",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.20577338435374187,
+      "command_onset_latency_seconds": 0.1128935657596376,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00071",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.20052338435374123,
+      "command_onset_latency_seconds": 0.10764356575963696,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00072",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.14419586167800452,
+      "command_onset_latency_seconds": 0.07453599773242625,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00072",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.15338336167800443,
+      "command_onset_latency_seconds": 0.08372349773242616,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00073",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.13306122448979618,
+      "command_onset_latency_seconds": -0.12235827664399068,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00073",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.10306122448979593,
+      "command_onset_latency_seconds": -0.15235827664399093,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00074",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.268060657596372,
+      "command_onset_latency_seconds": 0.08230102040816334,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00074",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": false,
+      "keyword_latency_seconds": null,
+      "command_onset_latency_seconds": null,
+      "detected_before_command_end": false
+    },
+    {
+      "id": "hey_belle-testing-00075",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.20114597505668907,
+      "command_onset_latency_seconds": -0.21681320861678033,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00075",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.19445847505668956,
+      "command_onset_latency_seconds": -0.22350070861677984,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00076",
+      "text": "Hey Belle, test Belle.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.19048852040816344,
+      "command_onset_latency_seconds": -0.1926407312925168,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00076",
+      "text": "Hey Belle, test Belle.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1891760204081634,
+      "command_onset_latency_seconds": -0.19395323129251685,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00077",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.16440079365079352,
+      "command_onset_latency_seconds": 0.11796088435374136,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00077",
+      "text": "Hey Belle, turn off the kitchen lights.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.18427579365079383,
+      "command_onset_latency_seconds": 0.13783588435374167,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00078",
+      "text": "Hey Belle, what is on today?",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.12217361111111125,
+      "command_onset_latency_seconds": -0.0635860260770974,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00078",
+      "text": "Hey Belle, what is on today?",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.11648611111111118,
+      "command_onset_latency_seconds": -0.06927352607709747,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00079",
+      "text": "Hey Belle, play the radio.",
+      "noisy": false,
+      "detected": true,
+      "keyword_latency_seconds": 0.13730342970521558,
+      "command_onset_latency_seconds": -0.4083655045351473,
+      "detected_before_command_end": true
+    },
+    {
+      "id": "hey_belle-testing-00079",
+      "text": "Hey Belle, play the radio.",
+      "noisy": true,
+      "detected": true,
+      "keyword_latency_seconds": 0.1398034297052151,
+      "command_onset_latency_seconds": -0.4058655045351478,
+      "detected_before_command_end": true
+    }
+  ],
+  "physical_acceptance": false,
+  "scope": "Synthetic wake-plus-command detector check only; does not verify Home Assistant command capture, network latency or device action."
+}
