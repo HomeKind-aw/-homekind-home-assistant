@@ -95,6 +95,21 @@ class VoiceTests(unittest.IsolatedAsyncioTestCase):
                 await client._request(self.session, data={'operation':'speak'})
 
 class InstallTests(unittest.TestCase):
+    def test_preparation_only_adds_pilot_when_explicitly_chosen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);config=root/'config';config.mkdir()
+            installer.prepare(source=ROOT/'custom_components/belmelo_voice',models=ROOT/'wake_words',config=config,data=root/'data')
+            self.assertFalse((config/'custom_wake_words').exists())
+            installer.prepare(pilot=True,source=ROOT/'custom_components/belmelo_voice',models=ROOT/'wake_words',config=config,data=root/'data')
+            self.assertEqual(len(list((config/'custom_wake_words').iterdir())),2)
+            self.assertEqual(json.loads((config/'custom_components/belmelo_voice/manifest.json').read_text())['version'],'0.3.0')
+    def test_preparation_failure_rolls_back_only_new_pilot_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);config=root/'config';config.mkdir();target=config/'custom_wake_words';target.mkdir()
+            (target/'local_model.json').write_text('local')
+            with patch.object(installer,'install',side_effect=OSError('fictional disk failure')):
+                with self.assertRaises(OSError):installer.prepare(pilot=True,models=ROOT/'wake_words',config=config,data=root/'data')
+            self.assertEqual([p.name for p in target.iterdir()],['local_model.json'])
     def test_actual_packaged_pilot_integrity_and_gate_are_preserved(self):
         release=json.loads((ROOT/'wake_words/release.json').read_text())
         self.assertEqual(release['status'],'experimental')

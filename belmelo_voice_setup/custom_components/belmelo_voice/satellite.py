@@ -2,12 +2,14 @@
 import asyncio
 from dataclasses import replace
 from datetime import timedelta
+from datetime import datetime, timezone
+from uuid import UUID
 from homeassistant.components import assist_pipeline
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 from .const import DOMAIN
 
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 
 class SatelliteConnection:
     def __init__(self, hass, entry, client):
@@ -19,6 +21,39 @@ class SatelliteConnection:
         self.cancel_interval = None
         self.lock = asyncio.Lock()
         self.closed = False
+        self.connection_id = None
+
+    async def connect(self, request):
+        """One explicit, expiring choice; select only this entry's Belle pipeline."""
+        if not isinstance(request, dict) or set(request) != {'id', 'expires_at'}:
+            return False
+        try:
+            ident = str(UUID(request['id']))
+            expiry = datetime.fromisoformat(request['expires_at'].replace('Z', '+00:00'))
+            remaining = (expiry - datetime.now(timezone.utc)).total_seconds()
+        except (ValueError, TypeError, AttributeError):
+            return False
+        if not 0 < remaining <= 90 or ident == self.connection_id:
+            return False
+        # Remember before dispatch. An uncertain service result is not replayed.
+        self.connection_id = ident
+        pipeline = next((p for p in assist_pipeline.async_get_pipelines(self.hass)
+            if p.id == self.entry.data.get('pipeline_id')), None)
+        if not pipeline or pipeline.prefer_local_intents:
+            return False
+        registry = er.async_get(self.hass)
+        for kind in ('stt', 'conversation', 'tts'):
+            expected = registry.async_get_entity_id(kind, DOMAIN, self.client.endpoint + '_' + kind)
+            if not expected or getattr(pipeline, kind + '_engine') != expected:
+                return False
+        candidates = [r for r in er.async_entries_for_device(registry, self.client.microphone)
+            if r.domain == 'select' and not r.disabled_by and (s := self.hass.states.get(r.entity_id))
+            and pipeline.name in s.attributes.get('options', [])]
+        if len(candidates) != 1:
+            return False
+        await self.hass.services.async_call('select', 'select_option',
+            {'entity_id':candidates[0].entity_id, 'option':pipeline.name}, blocking=True)
+        return self.pipeline_ready()
 
     def satellite(self):
         registry = er.async_get(self.hass)
@@ -80,6 +115,11 @@ class SatelliteConnection:
                 return
             if event and self.events and self.events[0] is event:
                 self.events.pop(0)
+            if response.get('connection_request'):
+                try:
+                    await self.connect(response['connection_request'])
+                except Exception:
+                    pass
             test = response.get('test')
             if self.watcher and not self.watcher.done() and (not test or test.get('id') != self.test_id):
                 self.watcher.cancel()
@@ -89,7 +129,7 @@ class SatelliteConnection:
                     await self.select_word(word)
                 except Exception:
                     pass
-            if test and test.get('status') == 'waiting' and test.get('id') != self.test_id:
+            if test and test.get('mode') != 'single_phrase' and test.get('status') == 'waiting' and test.get('id') != self.test_id:
                 self.test_id = test['id']
                 self.watcher = asyncio.create_task(self.watch(test))
 

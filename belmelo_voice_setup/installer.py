@@ -116,18 +116,37 @@ def install(source=Path('/opt/belmelo/custom_components/belmelo_voice'), config=
         if staged.exists():
             shutil.rmtree(staged)
 
+def prepare(*, pilot=False, source=Path('/opt/belmelo/custom_components/belmelo_voice'),
+            models=MODEL_SOURCE, config=Path('/homeassistant'), data=Path('/data')):
+    """One preparation action and one restart, with explicit optional pilot choice."""
+    target = config/'custom_wake_words'
+    before = {p.name for p in target.iterdir()} if target.is_dir() else set()
+    created = []
+    try:
+        if pilot:
+            install_models(models, config)
+            created = [p for p in target.iterdir() if p.name not in before
+                and p.name in {word+suffix for word in MODEL_IDS for suffix in ('.json', '.tflite')}]
+        install(source, config, data)
+    except Exception:
+        # Roll back only exact package files newly added by this action.
+        for path in created:
+            packaged = models/path.name
+            if not path.is_symlink() and path.is_file() and path.read_bytes() == packaged.read_bytes():
+                path.unlink()
+        raise
+
 class Handler(BaseHTTPRequestHandler):
     def page(self, message='', status=200):
         body = ('<!doctype html><html lang="en-AU"><meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>Belmelo Voice setup</title><style>body{font:18px system-ui;line-height:1.55;background:#faf8f4;color:#333;margin:0;padding:24px}main{max-width:620px;margin:auto}button{padding:14px 22px;border:0;border-radius:16px;background:#665180;color:white;font:inherit}li{margin:12px 0}.status{padding:16px;background:#ece7f2;border-radius:16px}</style><main>'
-            '<h1>Connect your microphone to Belle</h1><p>This installs the Belmelo Voice integration. Your existing microphone firmware and home connection stay in place.</p>'
+            '<h1>Prepare Belle</h1><p>One setup action, then return to Belmelo to connect your microphone and hear its reply.</p>'
             + ('<p class="status" role="status">' + html.escape(message) + '</p>' if message else '')
-            + '<form method="post"><input type="hidden" name="nonce" value="' + NONCE + '"><button>Install integration</button></form>'
-            '<ol><li>After installation, restart Home Assistant once from Settings → System.</li><li>Open Belmelo → Ask Belle → More options → Room microphones. Choose the room and features, then create a pairing code.</li><li>In Home Assistant, add the Belmelo Voice integration under Devices &amp; services. Paste the code and select the matching ESPHome microphone.</li><li>Check that the microphone uses its dedicated Belle assistant. Try a light command and check both the lights and reply.</li></ol>'
-            '<p>You can remove this setup app after pairing. Pause room microphone access at any time in Belmelo.</p>'
-            + ('<details><summary>Try the Belle wake-word pilot</summary><p>Add the experimental <b>Hey Belle</b> model for a spoken test on your microphone. It has software test results; household accuracy is still being checked.</p>'
-               '<form method="post"><input type="hidden" name="nonce" value="' + NONCE + '"><button name="operation" value="models">Add pilot wake words</button></form>'
-               '<p>Restart Home Assistant once, then open Belmelo → Ask Belle → More options → Room microphones → Test. Choose a phrase and use the microphone test. Your current phrase stays selected until you choose another. A compatible ESPHome satellite downloads the model from Home Assistant over your home network.</p></details>' if (MODEL_SOURCE/'release.json').is_file() else '')
+            + '<form method="post"><input type="hidden" name="nonce" value="' + NONCE + '"><input type="hidden" name="operation" value="prepare">'
+            + ('<p><label><input type="checkbox" name="pilot" value="yes"> Include the Hey Belle pilot</label><br><small>Optional experimental phrase. Your current phrase stays selected until you choose Hey Belle in Belmelo. Household accuracy is still being checked.</small></p>' if (MODEL_SOURCE/'release.json').is_file() else '')
+            + '<button>Prepare Belle</button></form>'
+            '<ol><li>Restart Home Assistant once from Settings → System after preparation.</li><li><a href="https://app.belmelo.com/household?room-microphones=1" target="_blank" rel="noopener">Return to room microphones in Belmelo</a>. Your saved connection picks up from there.</li></ol>'
+            '<details><summary>What is included?</summary><p>Only the Belmelo Voice integration and any pilot model you selected. Existing pairing, microphone firmware, home controls and sharing choices are kept. Home Assistant is not restarted automatically. You can remove this setup app after connecting.</p></details>'
             + '</main></html>').encode()
         self.send_response(status)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -151,7 +170,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.page('Open setup again to continue.', 403)
                 return
             operation=form.get('operation', ['integration'])[0]
-            if operation=='models':
+            if operation=='prepare':
+                if form.get('pilot', [''])[0] not in ('', 'yes'):
+                    self.page('Choose whether to include the optional pilot.', 400)
+                    return
+                prepare(pilot=form.get('pilot', [''])[0]=='yes')
+                self.page('Belle is prepared. Restart Home Assistant once, then return to Belmelo. Your saved microphone pairing is kept.')
+            elif operation=='models':
                 install_models()
                 self.page('Pilot wake words added. Restart Home Assistant once, then choose a phrase and test it in Belmelo. Existing microphone pairing is kept.')
             elif operation=='integration':

@@ -1,9 +1,16 @@
-# Belmelo Voice setup 0.2.1 — 15 November 2026
+# Belmelo Voice setup 0.3.0 — 15 November 2026
 
-This one-time installer connects existing ESPHome Assist microphones to Ask Belle inside Belmelo. It preserves microphone firmware, pairing credentials and the existing home connector. Everyday choices live in **Ask Belle → More options → Room microphones**.
+This one-time installer prepares existing ESPHome Assist microphones for Ask Belle. Microphone firmware, pairing and existing home permissions are kept. Everyday choices stay in **Ask Belle → More options → Set up room microphones**.
 
-1. Install or update **Belmelo Voice setup 0.2.1** from this repository in Home Assistant → Settings → Apps. Open its web UI and choose **Install integration**, then restart Home Assistant once. Existing pairing entries are kept; the setup app can be removed afterwards.
-2. In Belmelo, add a microphone, choose its room and **Whole home** or **This room only**. Shared plans and room readings are optional. Confirm these household choices and create a ten-minute pairing code.
+1. On the first installation or when updating the integration, open **Belmelo Voice setup**, choose **Prepare Belle**, then restart Home Assistant once. If you want the optional experimental Hey Belle phrase, tick **Include the Hey Belle pilot** before preparation so both packages use the same restart.
+2. Return to **Room microphones** in Belmelo. The guided screen resumes with the microphone’s actual connection report. A new microphone needs one expiring pairing code in Home Assistant; an already paired microphone skips that step. Choose **Connect to Belle** if its assistant needs connecting. This selects only that microphone’s own dedicated Belle pipeline, after an explicit authorised request that expires after 90 seconds. Ordinary restarts keep local assistant choices.
+3. Choose **Start spoken check**, say the displayed wake phrase followed by **“test Belle”**, then confirm that you heard Belle introduce herself. A fresh transcription, conversation and spoken reply through the paired pipeline must precede that confirmation. The check does not claim an independent intercepted wake event. The older two-utterance test remains available to older app versions.
+
+A request for a changed wake phrase stays pending until the microphone reports it active. If Home Assistant or the connection restarts, return to this same screen; pairing, access and current test progress come from the server. Pairing codes are never saved in browser storage. A reply-voice preview cannot pass the spoken check.
+
+Afterwards, try an enabled home command and check its physical result. Software deployment does not verify a real microphone’s sound or a home control’s physical result.
+
+**Whole home** or **This room only**. Shared plans and room readings are optional. Confirm these household choices and create a ten-minute pairing code.
 3. For a new microphone only, add **Belmelo Voice** under Home Assistant → Devices & services. Paste the code and choose the matching microphone. Check that microphone uses **Belle · your microphone name**. All three engines must be Belmelo Voice, with local command handling off. Existing saved local assistant choices are not overridden on restart.
 4. Open that microphone’s **Test** in Belmelo. Its available wake words are reported by the paired satellite. Choose one and wait for it to be applied.
 5. Start the microphone test. First say the selected wake word **on its own**. This first wake is consumed by Home Assistant’s satellite test. Once Belmelo confirms it was heard, say the wake word again followed by **“test Belle”**. Confirm you heard Belle introduce herself. A reply-voice preview is not a microphone test.
@@ -13,13 +20,13 @@ This one-time installer connects existing ESPHome Assist microphones to Ask Bell
 
 ## Hey Belle pilot — 15 November 2026
 
-The trained **Hey Belle 0.1.0** model is an optional household pilot. The regular **Install integration** button keeps its existing behaviour.
+The trained **Hey Belle 0.1.0** model is an optional household pilot. The optional phrase is prepared alongside the integration only when explicitly selected. It is never activated automatically.
 
 For a microphone already paired with Belle:
 
-1. Update **Belmelo Voice setup** to **0.2.1**. Open its web UI, expand **Try the Belle wake-word pilot**, then choose **Add pilot wake words**.
-2. Restart Home Assistant once. Your microphone pairing, household choices and active wake word are kept.
-3. In **Belmelo → Ask Belle → More options → Room microphones → Test**, select **Hey Belle · pilot** and choose **Use this wake word**. A compatible satellite downloads the fixed model from Home Assistant over the home network. Wait until its actual report shows the phrase active, then complete the spoken microphone test and check a real home command.
+1. In setup **0.3.0**, tick **Include the Hey Belle pilot**, then choose **Prepare Belle** and restart Home Assistant once.
+2. Return to the guided microphone screen in Belmelo. Open **Change wake phrase**, select **Hey Belle · pilot**, then choose **Use this phrase**. A compatible satellite downloads the fixed model locally. Wait for its actual active-phrase report.
+3. Complete the one-phrase spoken check, then check a real home command in that room.
 
 The model runs wake detection on the microphone. After a wake, the existing scoped Belle pipeline handles the request. The installer adds only fixed, hash-verified model files under Home Assistant's `custom_wake_words` folder. It does not select a phrase, alter the existing microphone firmware, broaden controls or restart Home Assistant automatically. Existing custom models are preserved; a conflicting local file is left unchanged.
 
@@ -48,6 +55,6 @@ The final model is 51,072 bytes, input int8 `[1,3,40]`, output uint8 `[1,1]`, 10
 
 Detailed machine-readable measurements, source attribution and the model licence are in [wake_words](wake_words). Model availability is read from the actual paired satellite; the cloud accepts only IDs it reports, never an arbitrary URL or a renamed phrase.
 
-The regular installer writes only its own integration folder and backs up the previous version in its own data directory. The separate pilot button adds only the fixed model files described above. It does not restart Home Assistant automatically or store an OpenAI key on the Green. Spoken requests use Belmelo’s existing AI connection. Internet is required; short requests up to thirty seconds are supported. Raw recordings are not persisted by Belmelo.
+The regular installer writes only its own integration folder and backs up the previous version in its own data directory. The optional pilot choice adds only the fixed model files described above. It does not restart Home Assistant automatically or store an OpenAI key on the Green. Spoken requests use Belmelo’s existing AI connection. Internet is required; short requests up to thirty seconds are supported. Raw recordings are not persisted by Belmelo.
 
 Software checks use fictional households and satellite events, and the real Home Assistant 2026.11.1 API contract in both supported architecture images. Physical Green installation, microphone audio quality, actual wake detection, audible reply and real-device response latency still require commissioning on the hardware. A passing build is not a physical acceptance result.

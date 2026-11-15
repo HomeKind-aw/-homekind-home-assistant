@@ -1,5 +1,7 @@
 """Fictional satellite events exercise the actual commissioning coordinator."""
 import asyncio
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from dataclasses import dataclass
 import importlib.util
 from pathlib import Path
@@ -33,7 +35,7 @@ class SatelliteTests(unittest.IsolatedAsyncioTestCase):
         self.registry=types.SimpleNamespace(async_get_entity_id=lambda kind,*args:kind+'.belle')
         self.pipeline=types.SimpleNamespace(id='own',name='Belle · Kitchen',prefer_local_intents=False,stt_engine='stt.belle',conversation_engine='conversation.belle',tts_engine='tts.belle')
         self.selected=types.SimpleNamespace(state=self.pipeline.name,attributes={'options':[self.pipeline.name]})
-        self.hass=types.SimpleNamespace(data={'assist_satellite':types.SimpleNamespace(get_entity=lambda entity:self.satellite if entity=='assist_satellite.kitchen' else None)},states=types.SimpleNamespace(get=lambda entity:self.selected))
+        self.hass=types.SimpleNamespace(data={'assist_satellite':types.SimpleNamespace(get_entity=lambda entity:self.satellite if entity=='assist_satellite.kitchen' else None)},states=types.SimpleNamespace(get=lambda entity:self.selected),services=types.SimpleNamespace(async_call=AsyncMock()))
         self.entry=types.SimpleNamespace(data={'pipeline_id':'own'})
         self.client=types.SimpleNamespace(endpoint='paired-endpoint',microphone='paired-kitchen',sync=AsyncMock(return_value={'test':None}))
         self.connection=sat.SatelliteConnection(self.hass,self.entry,self.client)
@@ -80,3 +82,28 @@ class SatelliteTests(unittest.IsolatedAsyncioTestCase):
         await self.connection.close()
         self.assertTrue(self.connection.watcher.cancelled())
         self.connection.cancel_interval.assert_called_once()
+    def request(self, seconds=60):
+        return {'id':str(uuid4()),'expires_at':(datetime.now(timezone.utc)+timedelta(seconds=seconds)).isoformat()}
+    async def test_connect_is_explicit_bounded_and_targets_only_bound_microphone(self):
+        self.selected.state='Home Assistant'
+        request=self.request()
+        await self.connection.connect(request)
+        self.hass.services.async_call.assert_awaited_once_with('select','select_option',{'entity_id':'select.kitchen_assistant','option':'Belle · Kitchen'},blocking=True)
+        await self.connection.connect(request)
+        self.assertEqual(self.hass.services.async_call.await_count,1)
+    async def test_invalid_expired_foreign_engine_and_ambiguous_connect_do_nothing(self):
+        for request in [self.request(-1),self.request(100),{**self.request(),'service':'arbitrary'},self.request()|{'id':'not-a-uuid'}]:
+            self.assertFalse(await self.connection.connect(request))
+        self.pipeline.conversation_engine='conversation.someone_else'
+        self.assertFalse(await self.connection.connect(self.request()))
+        self.pipeline.conversation_engine='conversation.belle'
+        self.entries.append(types.SimpleNamespace(domain='select',disabled_by=None,entity_id='select.another'))
+        self.assertFalse(await self.connection.connect(self.request()))
+        self.hass.services.async_call.assert_not_awaited()
+    async def test_normal_poll_preserves_local_assistant_and_single_phrase_is_not_intercepted(self):
+        self.selected.state='Home Assistant'
+        await self.connection.poll()
+        self.hass.services.async_call.assert_not_awaited()
+        self.client.sync.return_value={'test':{'id':'single','status':'command','mode':'single_phrase'}}
+        await self.connection.poll()
+        self.satellite.async_intercept_wake_word.assert_not_awaited()
