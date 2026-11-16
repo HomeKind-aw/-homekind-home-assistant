@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / 'homekind_bridge'))
 from bridge import atomic_json
 from device_names import DeviceNames, checked, label_ok
 from device_onboarding import z2m_route
-IEEE='0x54ef4410015f8319'
+IEEE='0x00124b0000000001'
 ENTITY='binary_sensor.'+IEEE+'_presence'
 UNIQUE=IEEE+'_presence_zigbee2mqtt'
 DEVICE='1'*32
@@ -60,7 +60,7 @@ class DeviceNameTests(unittest.TestCase):
         self.manager.connector=SimpleNamespace(ha=self.publish)
         self.worker=DeviceNames(self.manager,lambda c:Home(self),clock=lambda:self.now)
     def tearDown(self): self.temp.cleanup()
-    def payload(self,name='Alfie’s Presence Sensor',key='c'*64):
+    def payload(self,name='Bedroom’s Presence Sensor',key='c'*64):
         return {'protocol':1,'management_id':'a'*32,'expires_at':dt.datetime.fromtimestamp(self.now+60,dt.timezone.utc).isoformat(),
                 'devices':[{'key':key,'entity_id':ENTITY,'ha_unique_id':UNIQUE,'ha_device_id':DEVICE,'name':name}]}
     def publish(self,path,data):
@@ -76,7 +76,7 @@ class DeviceNameTests(unittest.TestCase):
         path,data=self.calls[0];self.assertEqual(path,'services/mqtt/publish')
         self.assertEqual(data['topic'],BASE+'/bridge/request/device/rename')
         command=json.loads(data['payload']);self.assertEqual(command['from'],IEEE)
-        self.assertEqual(command['to'],'Alfie’s Presence Sensor');self.assertIs(command['homeassistant_rename'],False)
+        self.assertEqual(command['to'],'Bedroom’s Presence Sensor');self.assertIs(command['homeassistant_rename'],False)
         self.assertIs(data['retain'],False);self.assertEqual(self.worker.report(),[{'key':'c'*64,'status':'synced'}])
         self.assertEqual(self.options['entity_ids'],[ENTITY]);self.assertEqual(json.loads(self.manager.credentials.read_text()),self.credentials)
     def test_restart_and_local_override_do_not_replay_success(self):
@@ -85,7 +85,7 @@ class DeviceNameTests(unittest.TestCase):
         self.assertEqual(len(self.calls),1);self.assertEqual(self.devices[0]['friendly_name'],'Local choice')
         self.accept(self.payload('New Belmelo name','d'*64));self.assertEqual(len(self.calls),2)
     def test_duplicate_name_never_renames_or_adds_silent_suffix(self):
-        self.devices.append({'ieee_address':'0x0000000000000001','friendly_name':'Alfie’s Presence Sensor','type':'EndDevice'})
+        self.devices.append({'ieee_address':'0x0000000000000001','friendly_name':'Bedroom’s Presence Sensor','type':'EndDevice'})
         self.accept();self.assertEqual(self.calls,[]);self.assertEqual(self.worker.report()[0]['status'],'conflict')
     def test_changed_identity_and_removed_selection_cannot_publish(self):
         self.unique='0x0000000000000000_presence_zigbee2mqtt';self.accept()
@@ -104,7 +104,7 @@ class DeviceNameTests(unittest.TestCase):
         self.accept();self.assertEqual(len(self.calls),1)
         self.now+=301;self.accept();self.assertEqual(len(self.calls),1);self.assertEqual(self.worker.report()[0]['status'],'synced')
     def test_matching_inventory_needs_no_publish(self):
-        self.devices[0]['friendly_name']='Alfie’s Presence Sensor';self.accept()
+        self.devices[0]['friendly_name']='Bedroom’s Presence Sensor';self.accept()
         self.assertEqual(self.calls,[]);self.assertEqual(self.worker.report()[0]['status'],'synced')
 
 if __name__=='__main__': unittest.main()
