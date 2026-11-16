@@ -54,17 +54,30 @@ class SystemUpdater:
         return options.get('allow_updates') is True and options.get('allow_system_updates') is True and bool(credential), scope
 
     def ready(self, require_idle=True):
-        s = self.c.supervisor('/supervisor/info', timeout=2)
-        core = self.c.supervisor('/core/info', timeout=2)
-        if s.get('healthy') is not True or s.get('supported') is not True or s.get('channel') != 'stable' or not isinstance(core.get('version'),str) or not VERSION.fullmatch(core['version']):
-            return False
-        api = self.c.call('http://supervisor/core/api/', self.c.token, timeout=2)
-        if not isinstance(api,dict) or api.get('message') != 'API running.':
-            return False
-        if not require_idle:
-            return True
-        idle = self.c.call('http://supervisor/core/api/template', self.c.token, {'template': IDLE_TEMPLATE}, timeout=2)
-        return idle is True
+        return self.readiness(require_idle=require_idle) == 'ready'
+
+    def readiness(self, require_idle=True):
+        """A bounded reason only; never export entity names, values or content."""
+        try:
+            s = self.c.supervisor('/supervisor/info', timeout=2)
+            if s.get('healthy') is not True:
+                return 'supervisor_unhealthy'
+            if s.get('supported') is not True:
+                return 'supervisor_unsupported'
+            if s.get('channel') != 'stable':
+                return 'non_stable_channel'
+            core = self.c.supervisor('/core/info', timeout=2)
+            if not isinstance(core.get('version'), str) or not VERSION.fullmatch(core['version']):
+                return 'core_unavailable'
+            api = self.c.call('http://supervisor/core/api/', self.c.token, timeout=2)
+            if not isinstance(api, dict) or api.get('message') != 'API running.':
+                return 'core_unavailable'
+            if not require_idle:
+                return 'ready'
+            idle = self.c.call('http://supervisor/core/api/template', self.c.token, {'template': IDLE_TEMPLATE}, timeout=2)
+            return 'ready' if idle is True else 'home_in_use' if idle is False else 'readiness_unavailable'
+        except (MaintenanceError, OSError, ValueError, KeyError, TypeError):
+            return 'readiness_unavailable'
 
     def eligible(self, estimate=1800):
         enabled, scope = self.local()

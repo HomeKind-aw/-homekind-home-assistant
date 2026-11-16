@@ -1,3 +1,10 @@
+## 0.2.4 · 17 November 2026
+
+- Report the result of real local Supervisor health, supported/stable channel, Core API and idle checks; an enabled service alone is not readiness.
+- Explain a blocked check using a fixed reason only. Entity names, readings, media content and recovery passwords stay at home.
+- Keep saved schedules, local opt-out, exact central release clearance, encrypted backups and single-dispatch recovery fences.
+- Upgrading an existing paired home needs no new code or repeated schedule save. Readiness is separate from a completed update.
+
 ## 0.2.2 - 11 November 2026
 
 Belmelo name, approved logo and setup wording. Existing app slug, pairing, saved device selections, local opt-out and permissions are retained. No new device access is introduced.

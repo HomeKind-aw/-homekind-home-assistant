@@ -7,7 +7,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'bridge'))
 from homekind_maintenance.window_runtime import WindowRuntime
 from homekind_maintenance.windows import WindowError
 
@@ -117,6 +117,25 @@ class WindowRuntimeTests(unittest.TestCase):
         self.assertEqual(self.sent[-1]['report']['execution']['phase'],'backup')
         self.assertEqual(self.sent[-2]['report']['execution']['phase'],'preparing')
         self.assertNotIn('password',json.dumps(self.sent))
+
+    def test_enabling_the_executor_never_masquerades_as_a_passed_readiness_check(self):
+        self.c.token='synthetic-local';self.c.options=lambda:{'allow_updates':True,'allow_system_updates':True}
+        self.c.clock=lambda:datetime(2026,11,16,15,5,tzinfo=timezone.utc).timestamp()
+        def supervisor(path,payload=None,timeout=2):
+            self.assertIsNone(payload)
+            if path=='/supervisor/info':return {'healthy':True,'supported':True,'channel':'stable','version':'2026.11.0'}
+            return {'version':'2026.10.4','version_latest':'2026.11.1'}
+        self.c.supervisor=supervisor;cloud=self.c.call
+        def call(url,token,body=None,timeout=2):
+            if url=='http://supervisor/core/api/':return {'message':'API running.'}
+            if url=='http://supervisor/core/api/template':return False
+            result=cloud(url,token,body,timeout);result['executor_ready']=True;result['approved']={'core':'2026.11.1'};return result
+        self.c.call=call;self.runtime.step()
+        self.assertTrue(self.sent)
+        self.assertTrue(all(x['report']['executor_ready'] is False for x in self.sent))
+        self.assertTrue(all(x['report']['readiness']=='home_in_use' for x in self.sent))
+        self.assertTrue(all('execution' not in x['report'] for x in self.sent))
+        self.assertEqual(self.runtime.journal.read()['policy']['revision'],3)
 
 
 if __name__ == '__main__': unittest.main()

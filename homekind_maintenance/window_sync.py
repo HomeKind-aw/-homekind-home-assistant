@@ -7,6 +7,10 @@ from datetime import datetime
 import re
 from .windows import WindowError, instant, occurrences
 
+READINESS = {'ready', 'updates_disabled', 'connector_busy', 'supervisor_unhealthy',
+             'supervisor_unsupported', 'non_stable_channel', 'core_unavailable',
+             'home_in_use', 'readiness_unavailable'}
+
 
 def reconcile(journal, response, *, locally_enabled):
     if not isinstance(response, dict) or set(response) - {'protocol', 'authority_current', 'executor_ready', 'desired', 'approved'} or not {'protocol', 'authority_current', 'executor_ready', 'desired'} <= set(response):
@@ -24,7 +28,7 @@ def reconcile(journal, response, *, locally_enabled):
     return True
 
 
-def report(journal, *, management_id, locally_enabled, inventory, now, executor_ready=False, execution=None):
+def report(journal, *, management_id, locally_enabled, inventory, now, executor_ready=False, execution=None, readiness=None):
     # Inventory remains metadata supplied by a future verified collector. The
     # server checks its bounded component schema; it never authorises a target.
     if not isinstance(management_id, str) or not re.fullmatch(r'(?:[0-9a-f]{32})?', management_id) or type(locally_enabled) is not bool or locally_enabled and not management_id:
@@ -60,6 +64,10 @@ def report(journal, *, management_id, locally_enabled, inventory, now, executor_
     result = {'protocol': 1, 'management_id': management_id, 'locally_enabled': locally_enabled,
             'applied_revision': data['policy']['revision'] if data else 0, 'applied': applied,
             'inventory': inventory, 'next_window': upcoming, 'executor_ready': executor_ready}
+    if readiness is not None:
+        if not isinstance(readiness, str) or readiness not in READINESS or executor_ready and readiness != 'ready':
+            raise WindowError('Use a verified, bounded readiness check.')
+        result['readiness'] = readiness
     if execution is not None:
         from .system_updates import VERSION, ACTIVE
         from uuid import UUID
