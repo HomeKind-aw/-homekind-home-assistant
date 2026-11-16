@@ -181,6 +181,13 @@ class SetupManager:
         except Exception:
             if hasattr(self, "location_sharing"):
                 self.location_sharing.clear()
+        try:
+            if not hasattr(self, "device_names"):
+                from device_names import DeviceNames
+                self.device_names = DeviceNames(self)
+            payload["device_names"] = {"protocol": 1, "receipts": self.device_names.report()}
+        except Exception:
+            pass  # Optional naming cannot interrupt ordinary settings or readings.
         result = self.request(CLOUD_URL + "/configuration", credentials["token"], payload, timeout=5)
         if hasattr(self, "location_sharing"):
             self.location_sharing.accept(result.get("location") if isinstance(result, dict) else None, options)
@@ -192,6 +199,11 @@ class SetupManager:
             if saved is not None:
                 atomic_json(self.settings, saved)
                 self.changed.set()
+        try:
+            if hasattr(self, "device_names") and isinstance(result, dict):
+                self.device_names.accept(result.get("device_names"), options, credentials)
+        except Exception:
+            pass  # Never stop existing readings or controls on a naming failure.
 
     def configuration_loop(self):
         while not self.stopped.is_set():
