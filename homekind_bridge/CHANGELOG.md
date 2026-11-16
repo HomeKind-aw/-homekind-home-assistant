@@ -1,3 +1,10 @@
+## 0.25.5 — 16 November 2026
+
+- Match a selected Zigbee2MQTT device’s friendly name to its main Belmelo reading name. Related temperature, humidity and other reading labels stay separate.
+- Verify the local Home Assistant device, unique ID, IEEE address and actual MQTT discovery route before changing a label. Keep Home Assistant entity IDs, routines and history intact.
+- Confirm rename responses, avoid duplicate labels and retain local overrides until the Belmelo name changes. Optional naming failures leave normal readings and controls running.
+- Preserve pairing, selections, settings, local opt-out, app slug and data directory. No additional privilege is required. The matching Belmelo backend is required.
+
 ## 0.25.4 — 16 November 2026
 
 - Refresh idle command connections before reuse and recover one failed connection before authorisation, within the original command deadline.
