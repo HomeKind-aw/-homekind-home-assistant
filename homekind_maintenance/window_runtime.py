@@ -67,12 +67,12 @@ class WindowRuntime:
                 continue
         return rows
 
-    def exchange(self, local, inventory, executor_ready=False, execution=None):
+    def exchange(self, local, inventory, executor_ready=False, execution=None, readiness=None):
         c = self.companion
         payload = report(self.journal, management_id=local['management_id'],
                          locally_enabled=local['enabled'], inventory=inventory,
                          now=datetime.fromtimestamp(c.clock(), timezone.utc),
-                         executor_ready=executor_ready, execution=execution)
+                         executor_ready=executor_ready, execution=execution, readiness=readiness)
         credential = dict(c.data['credential'])
         response = c.call(CLOUD + '/maintenance-windows', credential['token'],
                           {'bridge_id': credential['id'], 'report': payload}, timeout=2)
@@ -93,11 +93,13 @@ class WindowRuntime:
     def step(self, allow_start=True):
         local = self.local()
         from .system_updates import SystemUpdater
-        ready = local['enabled'] and self.companion.options().get('allow_system_updates') is True and allow_start
+        enabled = local['enabled'] and self.companion.options().get('allow_system_updates') is True
         executor = SystemUpdater(self.companion,self.journal)
-        inventory = self.inventory(ready)
+        reason = 'updates_disabled' if not enabled else 'connector_busy' if not allow_start else executor.readiness()
+        ready = reason == 'ready'
+        inventory = self.inventory(enabled)
         try:
-            response = self.exchange(local, inventory, ready, executor.status())
+            response = self.exchange(local, inventory, ready, executor.status(), reason)
         except Exception:
             if executor.job and executor.job['phase'] not in ('healthy', 'cancelled', 'failed'):
                 executor.step()  # Observe an already dispatched operation during cloud outages.
@@ -105,7 +107,7 @@ class WindowRuntime:
         if reconcile(self.journal, response, locally_enabled=local['enabled']):
             # A distinct report acknowledges the actual durable file, not a
             # desired revision that has merely arrived over the network.
-            response = self.exchange(local, inventory, ready, executor.status())
+            response = self.exchange(local, inventory, ready, executor.status(), reason)
         approved = {}
         def accept_approvals(response):
             value = response.get('approved', {}) if isinstance(response, dict) else {}
@@ -117,7 +119,8 @@ class WindowRuntime:
             current = self.local()
             if current != local or self.companion.options().get('allow_system_updates') is not True:
                 return False
-            r = self.exchange(local,self.inventory(True),True,executor.status())
+            checked = executor.readiness()
+            r = self.exchange(local,self.inventory(True),checked == 'ready',executor.status(),checked)
             accept_approvals(r)
             data = self.journal.read()
             snapshot = None if data is None else {k:data[k] for k in ('policy','paused','defer_until')}
@@ -126,5 +129,7 @@ class WindowRuntime:
         executor.approved = lambda component, version: approved.get(component) == version
         if ready and response.get('executor_ready') is True or executor.job and executor.job['phase'] not in ('healthy','cancelled','failed'):
             executor.step()
-            self.exchange(local,inventory,ready,executor.status())
+            # Recheck after a step; the operation may have taken Core offline.
+            checked = 'updates_disabled' if not enabled else 'connector_busy' if not allow_start else executor.readiness()
+            self.exchange(local,inventory,checked == 'ready',executor.status(),checked)
         return response

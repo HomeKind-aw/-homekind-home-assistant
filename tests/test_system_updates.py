@@ -6,7 +6,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'bridge'))
 from homekind_maintenance.system_updates import SystemUpdater,IDLE_TEMPLATE
 from homekind_maintenance.maintenance import MaintenanceError
 from homekind_maintenance.windows import WindowJournal,WindowError
@@ -173,5 +173,20 @@ class SystemUpdateTests(unittest.TestCase):
         saved=self.c.directory/'system-backups'/(self.engine.job['id']+'.json')
         self.assertEqual(json.loads(saved.read_text())['password'],self.engine.job['password'])
         self.assertEqual(saved.stat().st_mode & 0o777,0o600)
+
+    def test_readiness_reports_actual_local_checks_without_exporting_private_values(self):
+        original=self.c.supervisor
+        for change,reason in [({'healthy':False},'supervisor_unhealthy'),({'supported':False},'supervisor_unsupported'),({'channel':'beta'},'non_stable_channel')]:
+            def supervisor(path,payload=None,timeout=2):
+                result=original(path,payload,timeout)
+                return {**result,**change} if path=='/supervisor/info' else result
+            self.c.supervisor=supervisor
+            self.assertEqual(self.engine.readiness(),reason);self.assertFalse(self.engine.ready())
+        self.c.supervisor=original;self.idle=False
+        self.assertEqual(self.engine.readiness(),'home_in_use');self.assertFalse(self.engine.ready())
+        self.idle=True;self.assertEqual(self.engine.readiness(),'ready')
+        self.c.call=lambda *a,**k: (_ for _ in ()).throw(MaintenanceError('private response never exported'))
+        self.assertEqual(self.engine.readiness(),'readiness_unavailable');self.assertFalse(self.engine.ready())
+        self.assertEqual(self.posts,[])
 
 if __name__=='__main__': unittest.main()
