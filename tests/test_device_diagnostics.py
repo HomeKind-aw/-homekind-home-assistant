@@ -48,5 +48,59 @@ class DeviceDiagnosticTests(unittest.TestCase):
         worker=d.DeviceDiagnostics(type('Manager',(),{})());worker.job={'id':'test'};worker.samples=[{'private':'temporary'}]
         worker.accept(None,self.options(),{});self.assertIsNone(worker.job);self.assertEqual(worker.samples,[])
 
+    def collector(self, wrong_identity=False, opted_out=False):
+        options=self.options();job=self.payload()['capture'];now=d.expiry('2026-11-18T00:00:00Z');clock=[now];calls=[];sent=[]
+        class Connector:
+            credentials={'bridge_id':'synthetic','token':'local-only'}
+            allowlist=set(options['entity_ids'])
+            def stopping(self):return False
+            def ha(self,path,timeout=5):
+                calls.append(path)
+                if path=='states':return [{'entity_id':'number.sensitivity','state':'120'},{'entity_id':'sensor.other_person','state':'never-share'}]
+                return {'state':'off','attributes':{'private':'never-share'},'last_changed':'2026-11-18T00:00:00Z'}
+        c=Connector()
+        class Manager:
+            connector=c
+            stopped=threading.Event()
+            def options(self):return {**options,'managed_settings':False} if opted_out else options
+        class Socket:
+            received=0
+            def send(self,payload):sent.append(json.loads(payload))
+            def recv(self,timeout):
+                self.received+=1
+                clock[0]=now+self.received
+                if self.received==1:return json.dumps({'id':4,'type':'result','success':True})
+                if self.received>2:
+                    clock[0]=now+31
+                    raise TimeoutError()
+                return json.dumps({'id':4,'event':{'topic':'zigbee2mqtt/bed','retain':True,'payload':json.dumps({'presence':True,'motion_sensitivity':'high','password':'never-share'})}})
+            def close(self):pass
+        class Home:
+            def socket(self):return Socket()
+            def auth(self,ws):pass
+            def query(self,ws,ident,kind,**args):
+                if kind=='config/entity_registry/list':return [{'entity_id':'binary_sensor.bed','device_id':'b'*32,'unique_id':'wrong' if wrong_identity else 'bed_presence_zigbee2mqtt','platform':'mqtt'},{'entity_id':'number.sensitivity','device_id':'b'*32,'unique_id':'bed_absence_delay_timer_zigbee2mqtt'}]
+                if kind=='config/device_registry/list':return [{'id':'b'*32,'sw_version':'0.0.0_6542','manufacturer':'Aqara','model':'FP300'}]
+                return {'entities':[{'discovery_data':{'payload':{'unique_id':'bed_presence_zigbee2mqtt','state_topic':'zigbee2mqtt/bed'}}}]}
+        worker=d.DeviceDiagnostics(Manager(),home_factory=lambda _:Home(),clock=lambda:clock[0]);worker.job={**job,'management_id':options['management_id']}
+        return worker,job,options,c,calls,sent,clock,now
+
+    def test_collector_reads_one_exact_device_and_never_dispatches_a_write(self):
+        worker,job,options,c,calls,sent,clock,now=self.collector()
+        worker.run(job['id'],options,c.credentials)
+        self.assertEqual([s['source'] for s in worker.samples],['settings','home_assistant','zigbee2mqtt'])
+        self.assertEqual(worker.samples[1]['data']['state'],'off');self.assertTrue(worker.samples[2]['data']['presence']);self.assertTrue(worker.samples[2]['retained'])
+        self.assertEqual(worker.snapshot['firmware'],'0.0.0_6542');self.assertTrue(worker.snapshot['mqtt_available'])
+        self.assertEqual(calls,['states','states/binary_sensor.bed']);self.assertEqual(sent,[{'id':4,'type':'mqtt/subscribe','topic':'zigbee2mqtt/bed','qos':0}])
+        self.assertNotIn('never-share',json.dumps(worker.samples))
+
+    def test_changed_identity_stops_before_reading_sensor_values(self):
+        worker,job,options,c,calls,*_=self.collector(wrong_identity=True);worker.run(job['id'],options,c.credentials)
+        self.assertEqual(calls,[]);self.assertEqual(worker.samples,[]);self.assertEqual(worker.status,'unavailable')
+
+    def test_local_opt_out_stops_before_any_device_query(self):
+        worker,job,options,c,calls,sent,*_=self.collector(opted_out=True);worker.run(job['id'],options,c.credentials)
+        self.assertEqual(calls,[]);self.assertEqual(sent,[]);self.assertEqual(worker.samples,[])
+
 
 if __name__=='__main__':unittest.main()
