@@ -188,7 +188,19 @@ class SetupManager:
             payload["device_names"] = {"protocol": 1, "receipts": self.device_names.report()}
         except Exception:
             pass  # Optional naming cannot interrupt ordinary settings or readings.
+        try:
+            if not hasattr(self, "device_diagnostics"):
+                from device_diagnostics import DeviceDiagnostics
+                self.device_diagnostics = DeviceDiagnostics(self)
+            payload["device_diagnostics"] = self.device_diagnostics.prepare(options)
+        except Exception:
+            pass  # Optional read-only checks never interrupt ordinary features.
         result = self.request(CLOUD_URL + "/configuration", credentials["token"], payload, timeout=5)
+        try:
+            if hasattr(self, "device_diagnostics") and isinstance(result, dict):
+                self.device_diagnostics.accept(result.get("device_diagnostics"), options, credentials)
+        except Exception:
+            pass
         if hasattr(self, "location_sharing"):
             self.location_sharing.accept(result.get("location") if isinstance(result, dict) else None, options)
         with self.lock:
