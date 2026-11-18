@@ -3,6 +3,6 @@ RUN apk add --no-cache python3 tzdata
 ARG BUILD_VERSION
 ARG BUILD_ARCH
 LABEL io.hass.version="${BUILD_VERSION}" io.hass.type="app" io.hass.arch="${BUILD_ARCH}"
-COPY maintenance.py windows.py window_sync.py window_runtime.py system_updates.py recovery_ui.py /opt/homekind/homekind_maintenance/
+COPY maintenance.py windows.py window_sync.py window_runtime.py system_updates.py update_activity.py update_diagnostics.py recovery_ui.py /opt/homekind/homekind_maintenance/
 WORKDIR /opt/homekind
 CMD ["/command/with-contenv", "python3", "-u", "-c", "from homekind_maintenance.maintenance import main; main()"]
