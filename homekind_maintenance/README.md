@@ -1,6 +1,6 @@
-# Belmelo Maintenance Companion 0.2.4
+# Belmelo Maintenance Companion 0.2.5
 
-17 November 2026. Readiness now means the local health, API and idle checks passed. Enabling the update service alone no longer reports the home as ready. A bounded reason explains a blocked check without sharing entity names, readings, media content or backup passwords. Existing credentials, saved update times, release clearance and recovery fences remain in the same private data folder. The `homekind_maintenance` slug, manager role and fixed Home Assistant API routes are unchanged.
+19 November 2026. Independent background audio no longer prevents an approved overnight update. Running Home Assistant scripts, Home Assistant-served streams and unverifiable sources remain explicit holds. The local Update check identifies blocking players/scripts and retains recent reasons without exporting names, media URLs, content or recovery keys. Existing pairing, saved times, local opt-out, central release clearance and recovery fences are preserved.
 
 ## One-time setup on your phone
 
@@ -16,7 +16,7 @@ An existing paired home only needs **Home Assistant → Settings → Apps → Be
 
 ## Update and recovery
 
-One component is updated at a time. Local and cloud checks require current permission, exact acknowledged choices, stable supported Supervisor, a responding Home Assistant API, no playing media/running scripts or pending controls, and enough time before the window closes. Each update creates and verifies an encrypted full system backup including the Home Assistant database. Core configuration is checked before installation. OS installation and its separate reboot each obey the chosen window. Missing a period never causes daytime catch-up.
+One component is updated at a time. Local and cloud checks require current permission, exact acknowledged choices, stable supported Supervisor, a responding Home Assistant API, no Home Assistant-dependent or unverified media, running scripts or pending controls, and enough time before the window closes. Each update creates and verifies an encrypted full system backup including the Home Assistant database. Core configuration is checked before installation. OS installation and its separate reboot each obey the chosen window. Missing a period never causes daytime catch-up.
 
 Every POST is durably recorded before dispatch. A lost response, restart or uncertain result never repeats it. Version and service observations reconcile progress. Controls pause, readings remain last known, queued controls are cancelled, and fresh post-maintenance readings are required before controls return. Failure or uncertain outcomes require review. The local backup journal is retained; never delete Companion data while recovery may be needed.
 
@@ -25,3 +25,16 @@ Open this app's **Web UI** inside Home Assistant to see recorded backup referenc
 Existing connector-only staged updates and exact recorded connector-backup recovery remain supported. Pilot/stable rollout gates are unchanged. The independent read-only inventory reporter remains enabled.
 
 Software verification is separate from physical commissioning. An actual Green Core/OS restart, measured reconnection, restored controls and backup restoration must be tested before fleet recovery is marked verified. Publishing does not pair a home or enable updates.
+
+## Scheduled update checks in 0.2.5
+
+Approved Core/OS releases use the saved household window. Independent background
+audio can continue; running Home Assistant scripts, Home Assistant-served audio
+and unverifiable media sources remain holds. Core health, current authority,
+local opt-out, encrypted backup and single-dispatch recovery checks are unchanged.
+
+Open the existing Web UI and expand **Update check** for the current reason,
+the names of blocking players/scripts and recent local checks. These details
+stay on the Green. Cloud reports contain only fixed reason codes, never media
+URLs, content names, recovery keys or household entity values. Upgrading preserves
+the pairing and saved schedule; no repeated code or schedule save is needed.
