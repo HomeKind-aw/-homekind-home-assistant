@@ -10,6 +10,7 @@ import secrets
 from .maintenance import atomic, CLOUD, MaintenanceError
 from .windows import WindowJournal, WindowError
 from .window_sync import report, reconcile
+from .update_diagnostics import observe
 
 VERSION = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.+-]{0,79}')
 
@@ -88,6 +89,7 @@ class WindowRuntime:
             executor = SystemUpdater(self.companion, self.journal)
             return executor.job is not None and executor.job['phase'] not in ('healthy', 'cancelled', 'failed')
         except Exception:
+            observe(self.companion, self.journal, executor, reason, None)
             return True  # Retain an unverified operation fence.
 
     def step(self, allow_start=True):
@@ -132,4 +134,6 @@ class WindowRuntime:
             # Recheck after a step; the operation may have taken Core offline.
             checked = 'updates_disabled' if not enabled else 'connector_busy' if not allow_start else executor.readiness()
             self.exchange(local,inventory,checked == 'ready',executor.status(),checked)
+            reason = checked
+        observe(self.companion, self.journal, executor, reason, response)
         return response
