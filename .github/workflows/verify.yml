@@ -88,6 +88,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Render the real activity template and exercise the scheduled update
+        run: |
+          python3 -m venv "$RUNNER_TEMP/maintenance-template-test"
+          "$RUNNER_TEMP/maintenance-template-test/bin/python" -m pip install --disable-pip-version-check Jinja2==3.1.6 MarkupSafe==3.0.3
+          "$RUNNER_TEMP/maintenance-template-test/bin/python" -m unittest discover -s tests -p 'test_update_activity.py' -v
       - name: Enable Arm emulation
         if: matrix.arch == 'aarch64'
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
@@ -99,7 +104,7 @@ jobs:
           TARGET_ARCH: ${{ matrix.arch }}
           TARGET_PLATFORM: ${{ matrix.platform }}
         run: |
-          docker buildx build --platform "$TARGET_PLATFORM" --load --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.2.3 --tag homekind-maintenance:verify ./homekind_maintenance
+          docker buildx build --platform "$TARGET_PLATFORM" --load --build-arg BUILD_ARCH="$TARGET_ARCH" --build-arg BUILD_VERSION=0.2.5 --tag homekind-maintenance:verify ./homekind_maintenance
           docker run --rm --platform "$TARGET_PLATFORM" --entrypoint python3 homekind-maintenance:verify -m compileall -q /opt/homekind
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_home_maintenance.py' -v
           docker run --rm --platform "$TARGET_PLATFORM" --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace,readonly" --workdir /workspace --entrypoint python3 homekind-maintenance:verify -m unittest discover -s tests -p 'test_*maintenance*.py' -v
