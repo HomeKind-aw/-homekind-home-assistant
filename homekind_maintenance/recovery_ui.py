@@ -13,6 +13,30 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
 
 
+def update_check_details(directory):
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    from .update_diagnostics import LABELS, read_observation
+    observation = read_observation(directory)
+    if observation is None:
+        return '<details><summary>Update check</summary><p>Waiting for the first local update check.</p></details>'
+    escape = lambda value: html.escape(str(value), quote=True)
+    try:
+        zone = ZoneInfo(observation['zone'])
+    except (ValueError, ZoneInfoNotFoundError):
+        zone = timezone.utc
+    stamp = lambda value: datetime.fromtimestamp(value, zone).strftime('%d %b at %I:%M %p')
+    body = '<p>' + escape(LABELS[observation['reason']]) + '</p><p class="hint">Last checked ' + escape(stamp(observation['at'])) + '.</p>'
+    if observation['blockers']:
+        body += '<p>Waiting for:</p><ul>' + ''.join('<li>' + escape(s) + '</li>' for s in observation['blockers']) + '</ul>'
+    if observation['background_audio']:
+        body += '<p class="hint">Independent background audio can continue during the saved update window.</p>'
+    history = observation['history'][-8:]
+    if history:
+        body += '<details><summary>Recent checks</summary><ul>' + ''.join('<li>' + escape(stamp(h['at'])) + ' · ' + escape(LABELS[h['reason']]) + '</li>' for h in reversed(history)) + '</ul></details>'
+    return '<details><summary>Update check</summary>' + body + '</details>'
+
+
 def recovery_page(directory, selected=None):
     entries = []
     folder = directory / 'system-backups'
@@ -40,10 +64,11 @@ def maintenance_page(companion, csrf, selected=None, error=None):
     escape = lambda value: html.escape(str(value), quote=True)
     form = '<form method="post" action="pair"><input type="hidden" name="csrf" value="' + escape(csrf) + '"><label for="pairing-code">Maintenance code from Belmelo</label><textarea id="pairing-code" name="pairing_code" rows="3" required maxlength="110" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste your code here"></textarea><label class="choice"><input type="checkbox" name="allow_maintenance" value="yes" required><span>Allow managed updates and backups<small>Belmelo can back up and update Home Assistant and its connector. System updates still need your chosen times and approval of a release in Belmelo.</small></span></label><button type="submit">Connect to Belmelo</button></form>'
     backup = recovery_page(companion.directory, selected)
+    update_check = update_check_details(companion.directory) if paired else ''
     backup = backup[backup.index('<h1>'):].removesuffix('</html>').replace('<h1>Belmelo backup recovery</h1>', '<h2>Backup recovery</h2>', 1)
     return '''<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Belmelo maintenance</title><style>
 body{box-sizing:border-box;font:16px/1.55 system-ui,sans-serif;background:#fffcf6;color:#293747;max-width:42rem;margin:0 auto;padding:24px 18px}*{box-sizing:border-box}h1,h2{color:#183b63;line-height:1.25}h1{font-size:26px;margin:10px 0 16px}h2{font-size:19px}p{margin:10px 0 18px}.brand{font-weight:700;color:#183b63}.card{background:white;border:1px solid #e2e7eb;border-radius:18px;padding:22px;margin:16px 0}label{display:block;font-weight:600;margin:14px 0 8px}textarea,input:not([type=checkbox]){display:block;width:100%;min-width:0;border:1px solid #b7c6d2;border-radius:10px;padding:12px;font:16px/1.5 ui-monospace,monospace;color:#183b63}textarea{resize:vertical}.choice{display:flex;align-items:flex-start;gap:11px;font-size:15px}.choice input{width:21px;height:21px;margin:3px 0;flex-shrink:0}.choice small{display:block;font-size:13px;font-weight:400;color:#5c6b7a;margin-top:4px}button{width:100%;min-height:48px;margin-top:18px;border:0;border-radius:10px;padding:12px 16px;background:#183b63;color:white;font:600 16px system-ui;cursor:pointer}.state{display:inline-block;font-size:13px;color:#28634e;background:#eaf4ee;border-radius:20px;padding:5px 10px}.hint{font-size:13px;color:#5c6b7a}.error{padding:12px;border-radius:10px;background:#fff3e3;color:#795018}details{border-top:1px solid #e2e7eb;margin-top:20px;padding-top:12px}summary{min-height:44px;cursor:pointer;color:#183b63;font-weight:600}article{border-top:1px solid #e2e7eb;padding:12px 0}a{color:#183b63}:focus-visible{outline:3px solid #ec6b50;outline-offset:3px}@media(max-width:360px){body{padding:16px 12px}.card{padding:17px}}
-</style></head><body><div class="brand">Belmelo · Maintenance Companion</div>''' + ('<p class="error" role="alert">' + escape(error) + '</p>' if error else '') + ('<section class="card"><span class="state">Connected to Belmelo</span><h1>You’re connected</h1><p>Return to Belmelo → Settings → Connections → Home Assistant → <b>Update times &amp; status</b> to choose your update window and approve a release.</p><p class="hint">System updates follow the window and release you approve in Belmelo.</p></section>' if connected else '<section class="card"><h1>' + ('Check your Belmelo connection' if paired else 'Connect to Belmelo') + '</h1><p>' + ('A connection has been saved. Belmelo has not confirmed a recent check yet. Use a fresh code below to reconnect.' if paired else 'Copy a maintenance code in Belmelo, paste it below, then connect. You do not need the Configuration tab.') + '</p>' + form + '</section>') + ('<details><summary>Reconnect maintenance</summary>' + form + '</details>' if connected else '') + '<details' + (' open' if selected else '') + '><summary>Backup recovery</summary>' + backup + '</details></body></html>'
+</style></head><body><div class="brand">Belmelo · Maintenance Companion</div>''' + ('<p class="error" role="alert">' + escape(error) + '</p>' if error else '') + ('<section class="card"><span class="state">Connected to Belmelo</span><h1>You’re connected</h1><p>Your saved update window is managed in Belmelo. Staff review releases under <b>Support → Releases</b>.</p><p class="hint">System updates follow the window and release you approve in Belmelo.</p></section>' if connected else '<section class="card"><h1>' + ('Check your Belmelo connection' if paired else 'Connect to Belmelo') + '</h1><p>' + ('A connection has been saved. Belmelo has not confirmed a recent check yet. Use a fresh code below to reconnect.' if paired else 'Copy a maintenance code in Belmelo, paste it below, then connect. You do not need the Configuration tab.') + '</p>' + form + '</section>') + ('<details><summary>Reconnect maintenance</summary>' + form + '</details>' if connected else '') + update_check + '<details' + (' open' if selected else '') + '><summary>Backup recovery</summary>' + backup + '</details></body></html>'
 
 
 class RecoveryServer(ThreadingHTTPServer):

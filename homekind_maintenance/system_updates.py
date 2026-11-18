@@ -13,12 +13,12 @@ import fcntl
 import os
 from .maintenance import atomic, MaintenanceError, BACKUP, job_finished
 from .windows import WindowError, evaluate
+from .update_activity import IDLE_TEMPLATE, activity_check
 
 VERSION = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.+-]{0,79}')
 JOB = re.compile(r'(?:[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})')
 ACTIVE = {'preparing', 'backup', 'backup_done', 'update', 'os_ready', 'verify'}
 # Evaluate locally: no entity values, listening data or activity history leave HA.
-IDLE_TEMPLATE = "{{ (states.media_player | selectattr('state','in',['playing','buffering']) | list | count == 0 and states.script | selectattr('state','eq','on') | list | count == 0) | to_json }}"
 
 
 class SystemUpdater:
@@ -58,6 +58,7 @@ class SystemUpdater:
 
     def readiness(self, require_idle=True):
         """A bounded reason only; never export entity names, values or content."""
+        self.activity = {'scripts': [], 'players': [], 'background_audio': 0}
         try:
             s = self.c.supervisor('/supervisor/info', timeout=2)
             if s.get('healthy') is not True:
@@ -75,7 +76,11 @@ class SystemUpdater:
             if not require_idle:
                 return 'ready'
             idle = self.c.call('http://supervisor/core/api/template', self.c.token, {'template': IDLE_TEMPLATE}, timeout=2)
-            return 'ready' if idle is True else 'home_in_use' if idle is False else 'readiness_unavailable'
+            config = {}
+            if isinstance(idle, dict) and idle.get('players') and not idle.get('scripts'):
+                config = self.c.call('http://supervisor/core/api/config', self.c.token, timeout=2)
+            reason, self.activity = activity_check(idle, core, config)
+            return reason
         except (MaintenanceError, OSError, ValueError, KeyError, TypeError):
             return 'readiness_unavailable'
 

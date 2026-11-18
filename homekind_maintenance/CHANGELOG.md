@@ -1,3 +1,10 @@
+## 0.2.5 · 19 November 2026
+
+- Independent background audio no longer prevents an approved update in its saved window.
+- Running Home Assistant scripts, Home Assistant-served audio and unverified media sources remain explicit holds.
+- The local maintenance page shows the current check, blocking player/script names and recent reasons. Media URLs, content names and credentials are never included in cloud reports or diagnostic logs.
+- Existing pairing, saved schedule, local opt-out, exact-version central clearance, encrypted backup and dispatch/recovery fences are preserved.
+
 ## 0.2.4 · 17 November 2026
 
 - Report the result of real local Supervisor health, supported/stable channel, Core API and idle checks; an enabled service alone is not readiness.
