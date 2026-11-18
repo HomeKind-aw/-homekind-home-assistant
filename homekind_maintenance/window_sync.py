@@ -1,7 +1,7 @@
-"""Inactive pure settings/report adapter. No network or update operation.
+"""Pure settings/report adapter. No network or update operation.
 
-The matched runner must supply freshly checked local consent and authenticated
-server responses. Current Docker/Companion imports neither this nor windows.py.
+The fixed runner supplies freshly checked local consent and authenticated
+server responses. Acknowledging settings does not itself authorise dispatch.
 """
 from datetime import datetime
 import re
@@ -9,7 +9,7 @@ from .windows import WindowError, instant, occurrences
 
 READINESS = {'ready', 'updates_disabled', 'connector_busy', 'supervisor_unhealthy',
              'supervisor_unsupported', 'non_stable_channel', 'core_unavailable',
-             'home_in_use', 'readiness_unavailable'}
+             'home_in_use', 'readiness_unavailable', 'script_running', 'media_unverified'}
 
 
 def reconcile(journal, response, *, locally_enabled):
@@ -29,7 +29,7 @@ def reconcile(journal, response, *, locally_enabled):
 
 
 def report(journal, *, management_id, locally_enabled, inventory, now, executor_ready=False, execution=None, readiness=None):
-    # Inventory remains metadata supplied by a future verified collector. The
+    # Inventory remains metadata supplied by the verified local collector. The
     # server checks its bounded component schema; it never authorises a target.
     if not isinstance(management_id, str) or not re.fullmatch(r'(?:[0-9a-f]{32})?', management_id) or type(locally_enabled) is not bool or locally_enabled and not management_id:
         raise WindowError('Check the local management choice.')
