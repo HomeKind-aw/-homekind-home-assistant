@@ -76,10 +76,7 @@ class SystemUpdater:
             if not require_idle:
                 return 'ready'
             idle = self.c.call('http://supervisor/core/api/template', self.c.token, {'template': IDLE_TEMPLATE}, timeout=2)
-            config = {}
-            if isinstance(idle, dict) and idle.get('players') and not idle.get('scripts'):
-                config = self.c.call('http://supervisor/core/api/config', self.c.token, timeout=2)
-            reason, self.activity = activity_check(idle, core, config)
+            reason, self.activity = activity_check(idle)
             return reason
         except (MaintenanceError, OSError, ValueError, KeyError, TypeError):
             return 'readiness_unavailable'

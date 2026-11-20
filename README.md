@@ -10,6 +10,8 @@ Selected devices show their actual supported controls. Choose **Connection choic
 
 Updating this same managed installation needs no new feature checkbox, pairing code or permission to every entity. Existing light/plug, media and camera choices survive. Initial Wi-Fi passwords, vendor login, Matter commissioning and new integration installation still follow their own local setup instructions. Physical testing is required before relying on a newly connected device.
 
+Maintenance Companion 0.2.6 removes all audio playback holds from approved Core/OS updates. Home Assistant audio may pause during a restart. Running scripts, the saved household window, local opt-out, central exact-version clearance, encrypted backups and health/recovery checks remain in place. Existing homes update the Companion in Home Assistant without pairing or saving their schedule again.
+
 ## Add devices in HomeKind (0.15.0)
 
 After an installer updates this same connector and the home is enrolled in **Manage feature choices in HomeKind**, use **HomeKind → Settings → Household & devices → Devices & rooms → Add device**. Existing enrolled homes need no additional feature checkbox. Pairing credentials, existing selections and feature choices survive the update.

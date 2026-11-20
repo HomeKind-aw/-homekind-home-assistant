@@ -183,7 +183,7 @@ class SystemUpdateTests(unittest.TestCase):
             self.c.supervisor=supervisor
             self.assertEqual(self.engine.readiness(),reason);self.assertFalse(self.engine.ready())
         self.c.supervisor=original;self.idle=False
-        self.assertEqual(self.engine.readiness(),'home_in_use');self.assertFalse(self.engine.ready())
+        self.assertEqual(self.engine.readiness(),'readiness_unavailable');self.assertFalse(self.engine.ready())
         self.idle=True;self.assertEqual(self.engine.readiness(),'ready')
         self.c.call=lambda *a,**k: (_ for _ in ()).throw(MaintenanceError('private response never exported'))
         self.assertEqual(self.engine.readiness(),'readiness_unavailable');self.assertFalse(self.engine.ready())
