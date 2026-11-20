@@ -133,7 +133,7 @@ class WindowRuntimeTests(unittest.TestCase):
         self.c.call=call;self.runtime.step()
         self.assertTrue(self.sent)
         self.assertTrue(all(x['report']['executor_ready'] is False for x in self.sent))
-        self.assertTrue(all(x['report']['readiness']=='home_in_use' for x in self.sent))
+        self.assertTrue(all(x['report']['readiness']=='readiness_unavailable' for x in self.sent))
         self.assertTrue(all('execution' not in x['report'] for x in self.sent))
         self.assertEqual(self.runtime.journal.read()['policy']['revision'],3)
 

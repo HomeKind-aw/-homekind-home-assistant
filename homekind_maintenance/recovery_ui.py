@@ -29,8 +29,7 @@ def update_check_details(directory):
     body = '<p>' + escape(LABELS[observation['reason']]) + '</p><p class="hint">Last checked ' + escape(stamp(observation['at'])) + '.</p>'
     if observation['blockers']:
         body += '<p>Waiting for:</p><ul>' + ''.join('<li>' + escape(s) + '</li>' for s in observation['blockers']) + '</ul>'
-    if observation['background_audio']:
-        body += '<p class="hint">Independent background audio can continue during the saved update window.</p>'
+    body += '<p class="hint">Audio playback does not delay updates. Home Assistant audio may pause while the system restarts.</p>'
     history = observation['history'][-8:]
     if history:
         body += '<details><summary>Recent checks</summary><ul>' + ''.join('<li>' + escape(stamp(h['at'])) + ' · ' + escape(LABELS[h['reason']]) + '</li>' for h in reversed(history)) + '</ul></details>'

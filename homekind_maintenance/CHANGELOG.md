@@ -1,3 +1,10 @@
+## 0.2.6 · 21 November 2026
+
+- Audio playback never delays an approved Core/OS update, including Home Assistant audio and unknown sources. Home Assistant audio may pause during the restart.
+- Read only running scripts for the local activity check; media players, sources and Home Assistant media configuration are no longer queried.
+- Keep running-script checks, exact-version central clearance, household opt-in and saved window, encrypted backup, health, single dispatch and recovery checks.
+- Existing pairing, saved choices and private recovery history survive the upgrade. No repeated code, schedule save or release approval is required.
+
 ## 0.2.5 · 19 November 2026
 
 - Independent background audio no longer prevents an approved update in its saved window.
@@ -29,3 +36,4 @@ Belmelo name, approved logo and setup wording. Existing app slug, pairing, saved
 - Local Ingress recovery-key page; no cloud export of keys.
 - Retained connector updates, settings, pairing and read-only system inventory.
 - Requires one-time system-update commissioning; defaults remain off.
+

@@ -15,7 +15,4 @@ def activity_response(template, states):
         env = Environment(); env.filters['to_json'] = json.dumps
         return json.loads(env.from_string(template).render(states=states))
     return {'scripts': [{'entity_id': s.entity_id, 'name': s.name}
-                        for s in states.script if s.state == 'on'],
-            'players': [{'entity_id': s.entity_id, 'name': s.name,
-                         'source': s.attributes.get('media_content_id', '')}
-                        for s in states.media_player if s.state in ('playing', 'buffering')]}
+                        for s in states.script if s.state == 'on'][:65]}

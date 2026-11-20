@@ -1,6 +1,6 @@
-# Belmelo Maintenance Companion 0.2.5
+# Belmelo Maintenance Companion 0.2.6
 
-19 November 2026. Independent background audio no longer prevents an approved overnight update. Running Home Assistant scripts, Home Assistant-served streams and unverifiable sources remain explicit holds. The local Update check identifies blocking players/scripts and retains recent reasons without exporting names, media URLs, content or recovery keys. Existing pairing, saved times, local opt-out, central release clearance and recovery fences are preserved.
+21 November 2026. Audio playback no longer prevents an approved overnight update, including Home Assistant audio and unknown sources. Home Assistant audio or announcements may pause while the system restarts. Running Home Assistant scripts still hold installation. The local Update check identifies running scripts and retains recent reasons without querying media players or sources. Existing pairing, saved times, local opt-out, central release clearance and recovery fences are preserved.
 
 ## One-time setup on your phone
 
@@ -16,7 +16,7 @@ An existing paired home only needs **Home Assistant → Settings → Apps → Be
 
 ## Update and recovery
 
-One component is updated at a time. Local and cloud checks require current permission, exact acknowledged choices, stable supported Supervisor, a responding Home Assistant API, no Home Assistant-dependent or unverified media, running scripts or pending controls, and enough time before the window closes. Each update creates and verifies an encrypted full system backup including the Home Assistant database. Core configuration is checked before installation. OS installation and its separate reboot each obey the chosen window. Missing a period never causes daytime catch-up.
+One component is updated at a time. Local and cloud checks require current permission, exact acknowledged choices, stable supported Supervisor, a responding Home Assistant API, no running scripts or pending controls, and enough time before the window closes. Audio playback does not delay an update. Each update creates and verifies an encrypted full system backup including the Home Assistant database. Core configuration is checked before installation. OS installation and its separate reboot each obey the chosen window. Missing a period never causes daytime catch-up.
 
 Every POST is durably recorded before dispatch. A lost response, restart or uncertain result never repeats it. Version and service observations reconcile progress. Controls pause, readings remain last known, queued controls are cancelled, and fresh post-maintenance readings are required before controls return. Failure or uncertain outcomes require review. The local backup journal is retained; never delete Companion data while recovery may be needed.
 
@@ -26,15 +26,15 @@ Existing connector-only staged updates and exact recorded connector-backup recov
 
 Software verification is separate from physical commissioning. An actual Green Core/OS restart, measured reconnection, restored controls and backup restoration must be tested before fleet recovery is marked verified. Publishing does not pair a home or enable updates.
 
-## Scheduled update checks in 0.2.5
+## Scheduled update checks in 0.2.6
 
-Approved Core/OS releases use the saved household window. Independent background
-audio can continue; running Home Assistant scripts, Home Assistant-served audio
-and unverifiable media sources remain holds. Core health, current authority,
+Approved Core/OS releases use the saved household window. Audio playback does
+not delay updates; running Home Assistant scripts remain holds. Home Assistant
+audio may pause during the restart. Core health, current authority,
 local opt-out, encrypted backup and single-dispatch recovery checks are unchanged.
 
 Open the existing Web UI and expand **Update check** for the current reason,
-the names of blocking players/scripts and recent local checks. These details
+the names of running scripts and recent local checks. These details
 stay on the Green. Cloud reports contain only fixed reason codes, never media
 URLs, content names, recovery keys or household entity values. Upgrading preserves
 the pairing and saved schedule; no repeated code or schedule save is needed.
