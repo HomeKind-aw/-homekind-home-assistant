@@ -174,6 +174,73 @@ class SystemUpdateTests(unittest.TestCase):
         self.assertEqual(json.loads(saved.read_text())['password'],self.engine.job['password'])
         self.assertEqual(saved.stat().st_mode & 0o777,0o600)
 
+    def test_slow_valid_configuration_check_completes_and_rechecks_window(self):
+        self.through_backup()
+        original=self.c.supervisor
+        def supervisor(path,payload=None,timeout=25):
+            if path=='/core/check':
+                if timeout < 40:
+                    raise TimeoutError('Synthetic slow validation')
+                self.now+=40
+                return {}
+            return original(path,payload,timeout)
+        self.c.supervisor=supervisor
+        self.engine.step()
+        self.assertEqual(self.engine.job['phase'],'update')
+        self.assertEqual([p for p,b in self.posts].count('/core/update'),1)
+
+    def test_window_closing_during_configuration_check_prevents_installation(self):
+        self.through_backup();original=self.c.supervisor
+        def supervisor(path,payload=None,timeout=25):
+            if path=='/core/check':
+                self.assertEqual(timeout,300);self.now+=3*3600;return {}
+            return original(path,payload,timeout)
+        self.c.supervisor=supervisor;self.engine.step()
+        self.assertNotIn('/core/update',[p for p,b in self.posts])
+
+    def test_revoked_approval_during_configuration_check_prevents_installation(self):
+        self.through_backup();original=self.c.supervisor
+        def supervisor(path,payload=None,timeout=25):
+            if path=='/core/check':
+                self.engine.approved=lambda component,version:False;return {}
+            return original(path,payload,timeout)
+        self.c.supervisor=supervisor;self.engine.step()
+        self.assertNotIn('/core/update',[p for p,b in self.posts])
+
+    def test_configuration_timeout_is_logged_privately_and_never_replayed(self):
+        import io
+        from contextlib import redirect_stdout
+        self.through_backup();original=self.c.supervisor
+        def supervisor(path,payload=None,timeout=25):
+            if path=='/core/check':
+                self.assertEqual(timeout,300)
+                try: raise TimeoutError('private configuration detail')
+                except TimeoutError as error: raise MaintenanceError('private response') from error
+            return original(path,payload,timeout)
+        self.c.supervisor=supervisor;output=io.StringIO()
+        with redirect_stdout(output): self.engine.step()
+        self.assertEqual(output.getvalue(),'System configuration check: timed out; update held.\n')
+        self.assertEqual(self.engine.job['phase'],'failed')
+        before=self.engine.path.read_bytes();self.engine=self.new();self.engine.step()
+        self.assertEqual(self.engine.path.read_bytes(),before)
+        self.assertNotIn('/core/update',[p for p,b in self.posts])
+
+    def test_invalid_configuration_stays_held_with_encrypted_backup_retained(self):
+        import io
+        from contextlib import redirect_stdout
+        self.through_backup();original=self.c.supervisor
+        def supervisor(path,payload=None,timeout=25):
+            if path=='/core/check': raise MaintenanceError('private configuration error')
+            return original(path,payload,timeout)
+        self.c.supervisor=supervisor;output=io.StringIO()
+        with redirect_stdout(output): self.engine.step()
+        self.assertIn('failed or unverified; update held.',output.getvalue())
+        self.assertNotIn('private',output.getvalue())
+        self.assertEqual(self.engine.job['phase'],'failed')
+        self.assertEqual(self.engine.job['backup_id'],'abcd1234')
+        self.assertTrue((self.c.directory/'system-backups'/(self.engine.job['id']+'.json')).exists())
+        self.assertNotIn('/core/update',[p for p,b in self.posts])
+
     def test_readiness_reports_actual_local_checks_without_exporting_private_values(self):
         original=self.c.supervisor
         for change,reason in [({'healthy':False},'supervisor_unhealthy'),({'supported':False},'supervisor_unsupported'),({'channel':'beta'},'non_stable_channel')]:

@@ -1,3 +1,10 @@
+## 0.2.7 · 22 November 2026
+
+- Allow up to five minutes for Supervisor's synchronous Core configuration check instead of the ordinary 25-second request timeout.
+- A timeout or failed/unverified check still prevents installation. Local logs distinguish a timeout without printing raw configuration or credentials.
+- After validation, recheck the saved window, current authority, local opt-out and readiness before dispatch. Preserve the encrypted backup and single-dispatch safeguards.
+- Existing failed attempts and their backup/recovery records remain held for review. Upgrading does not clear or replay them. The actual 22 November failure still needs Supervisor logs to confirm its cause.
+
 ## 0.2.6 · 21 November 2026
 
 - Audio playback never delays an approved Core/OS update, including Home Assistant audio and unknown sources. Home Assistant audio may pause during the restart.
