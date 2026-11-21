@@ -18,6 +18,7 @@ from .update_activity import IDLE_TEMPLATE, activity_check
 VERSION = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.+-]{0,79}')
 JOB = re.compile(r'(?:[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})')
 ACTIVE = {'preparing', 'backup', 'backup_done', 'update', 'os_ready', 'verify'}
+CONFIG_CHECK_TIMEOUT = 300
 # Evaluate locally: no entity values, listening data or activity history leave HA.
 
 
@@ -244,7 +245,16 @@ class SystemUpdater:
                 if info.get('version') != j['before'] or info.get('version_latest') != j['target'] or info.get('version_pending'):
                     raise MaintenanceError('The available update changed; review it first.')
                 if j['component'] == 'core':
-                    self.c.supervisor('/core/check',{},timeout=25)
+                    # Supervisor runs this validation synchronously. A Green can
+                    # need longer than an ordinary API request. Keep it bounded,
+                    # require a confirmed pass and recheck all gates afterwards.
+                    try:
+                        self.c.supervisor('/core/check',{},timeout=CONFIG_CHECK_TIMEOUT)
+                    except (MaintenanceError, OSError) as error:
+                        cause = error.__cause__
+                        timed_out = isinstance(error, TimeoutError) or isinstance(cause, TimeoutError) or isinstance(getattr(cause, 'reason', None), TimeoutError)
+                        print('System configuration check: ' + ('timed out; update held.' if timed_out else 'failed or unverified; update held.'), flush=True)
+                        raise
                 if not self.eligible():
                     return
                 payload = {'version':j['target']}

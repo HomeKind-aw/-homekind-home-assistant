@@ -1,4 +1,11 @@
-# Belmelo Maintenance Companion 0.2.6
+# Belmelo Maintenance Companion 0.2.7
+
+22 November 2026: Core configuration validation now has a bounded five-minute
+timeout. A failed or unconfirmed check still holds installation; authority,
+readiness and the saved window are checked again afterwards. Existing failed
+attempts and their backups stay retained for review and are not replayed by an
+upgrade. Local logs distinguish a timed-out check from a failed/unverified
+response without including configuration, media or credentials.
 
 21 November 2026. Audio playback no longer prevents an approved overnight update, including Home Assistant audio and unknown sources. Home Assistant audio or announcements may pause while the system restarts. Running Home Assistant scripts still hold installation. The local Update check identifies running scripts and retains recent reasons without querying media players or sources. Existing pairing, saved times, local opt-out, central release clearance and recovery fences are preserved.
 
