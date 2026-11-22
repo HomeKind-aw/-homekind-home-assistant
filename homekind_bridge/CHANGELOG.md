@@ -1,3 +1,7 @@
+## 0.25.7 — 22 November 2026
+
+- Apply a light’s colour and brightness together in a single routine action and confirm both reported values.
+
 ## 0.25.5 — 16 November 2026
 
 - Match a selected Zigbee2MQTT device’s friendly name to its main Belmelo reading name. Related temperature, humidity and other reading labels stay separate.

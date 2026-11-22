@@ -115,7 +115,9 @@ def action_request(state, action, parameters=None):
     if not isinstance(params, dict) or action not in caps['actions']:
         raise ValueError('This device does not support the requested action.')
     need_value = action in ('brightness', 'colour', 'colour_temperature', 'position', 'tilt', 'percentage', 'oscillate', 'hvac', 'temperature')
-    if set(params) != ({'value'} if need_value else set()):
+    extra_brightness = 'brightness' in params and action in ('colour', 'colour_temperature')
+    keys = {'value', 'brightness'} if extra_brightness else {'value'} if need_value else set()
+    if set(params) != keys:
         raise ValueError('Choose the supported device value.')
     value = params.get('value')
     fields = {}
@@ -157,6 +159,11 @@ def action_request(state, action, parameters=None):
     service = services.get(action)
     if service is None:
         raise ValueError('Choose a supported device action.')
+    if extra_brightness:
+        level = params['brightness']
+        if 'brightness' not in caps['actions'] or not number(level, 1, 100) or level != round(level):
+            raise ValueError('Choose a brightness between one and one hundred.')
+        fields['brightness_pct'] = int(level)
     return domain, service, fields
 
 
@@ -176,6 +183,9 @@ def action_matches(state, action, parameters=None):
         return value == 'off'
     if action in ('brightness', 'colour', 'colour_temperature') and value != 'on':
         return False
+    if action in ('colour', 'colour_temperature') and 'brightness' in params:
+        if not action_matches(state, 'brightness', {'value': params['brightness']}):
+            return False
     if action == 'colour':
         actual, target = attrs.get('colour'), params.get('value')
         if not all(isinstance(v, str) and re.fullmatch(r'#[0-9a-fA-F]{6}', v) for v in (actual, target)):

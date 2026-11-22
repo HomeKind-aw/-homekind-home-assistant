@@ -37,7 +37,15 @@ def _command(value):
         raise GroupRejected("Invalid group action.")
     parameters = value.get("parameters", {})
     action = value["desired"]
-    if not isinstance(parameters, dict) or set(parameters) != ({"value"} if action not in ("on", "off") else set()):
+    if not isinstance(parameters, dict):
+        raise GroupRejected("Invalid group setting.")
+    keys = {"value"} if action not in ("on", "off") else set()
+    if action in ("colour", "colour_temperature") and "brightness" in parameters:
+        keys.add("brightness")
+        level = parameters["brightness"]
+        if type(level) is not int or not 1 <= level <= 100:
+            raise GroupRejected("Invalid group brightness.")
+    if set(parameters) != keys:
         raise GroupRejected("Invalid group setting.")
     setting = parameters.get("value")
     if action == "brightness" and (type(setting) is not int or not 0 <= setting <= 100) or action == "colour_temperature" and (type(setting) is not int or not 1000 <= setting <= 40000) or action == "colour" and (not isinstance(setting, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", setting)):
@@ -59,6 +67,8 @@ def group_action(command):
         fields["rgb_color"] = [int(params["value"][i:i + 2], 16) for i in (1, 3, 5)]
     elif desired == "colour_temperature":
         fields["color_temp_kelvin"] = params["value"]
+    if desired in ("colour", "colour_temperature") and "brightness" in params:
+        fields["brightness_pct"] = params["brightness"]
     return "turn_off" if desired == "off" else "turn_on", fields
 
 
