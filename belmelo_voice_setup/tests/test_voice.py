@@ -71,6 +71,48 @@ class VoiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.session.calls[3][1]['json']['previous_turn_id'], turn)
         self.assertTrue(all(not kwargs['allow_redirects'] for _, kwargs in self.session.calls))
 
+    async def test_interrupted_pipeline_allows_an_immediate_repeat(self):
+        transcribed = asyncio.Event()
+
+        async def interrupted_run():
+            await self.voice.transcribe(self.stream())
+            transcribed.set()
+            await asyncio.Future()
+
+        first_run = asyncio.create_task(interrupted_run())
+        await transcribed.wait()
+        first_run.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await first_run
+
+        text = await self.voice.transcribe(self.stream())
+        await self.voice.converse(text, 'replacement', 'kitchen-mic')
+        turns = [kwargs['headers']['X-Belmelo-Turn'] for _, kwargs in self.session.calls]
+        self.assertNotEqual(turns[0], turns[1])
+        self.assertEqual(turns[1], turns[2])
+
+    async def test_overlapping_pipeline_tasks_keep_identical_transcripts_separate(self):
+        transcribed = asyncio.Event()
+        resume = asyncio.Event()
+
+        async def first_run():
+            text = await self.voice.transcribe(self.stream())
+            transcribed.set()
+            await resume.wait()
+            await self.voice.converse(text, 'first', 'kitchen-mic')
+
+        first = asyncio.create_task(first_run())
+        await transcribed.wait()
+        text = await self.voice.transcribe(self.stream())
+        await self.voice.converse(text, 'second', 'kitchen-mic')
+        resume.set()
+        await first
+
+        turns = [kwargs['headers']['X-Belmelo-Turn'] for _, kwargs in self.session.calls]
+        self.assertNotEqual(turns[0], turns[1])
+        self.assertEqual(turns[1], turns[2])
+        self.assertEqual(turns[0], turns[3])
+
     async def test_wrong_microphone_and_unapproved_reply_never_leave_home(self):
         with self.assertRaises(client.VoiceConnectionError):
             await self.voice.converse('Lights on', 'one', 'bedroom-mic')
@@ -102,7 +144,7 @@ class InstallTests(unittest.TestCase):
             self.assertFalse((config/'custom_wake_words').exists())
             installer.prepare(pilot=True,source=ROOT/'custom_components/belmelo_voice',models=ROOT/'wake_words',config=config,data=root/'data')
             self.assertEqual(len(list((config/'custom_wake_words').iterdir())),2)
-            self.assertEqual(json.loads((config/'custom_components/belmelo_voice/manifest.json').read_text())['version'],'0.3.1')
+            self.assertEqual(json.loads((config/'custom_components/belmelo_voice/manifest.json').read_text())['version'],'0.3.2')
     def test_preparation_failure_rolls_back_only_new_pilot_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);config=root/'config';config.mkdir();target=config/'custom_wake_words';target.mkdir()

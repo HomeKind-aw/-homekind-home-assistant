@@ -1,4 +1,6 @@
-# Belmelo Voice setup 0.3.1 — 15 November 2026
+# Belmelo Voice setup
+
+**0.3.2 candidate — 22 November 2026.** An interrupted spoken request now releases the next request immediately after the interrupted pipeline stops. If two requests hear the same words, each keeps its own transcription turn. The guided setup protocol still reports 0.3.0 for compatibility. Pairing shows ESPHome Assist microphones only. Incidental conversation reported by the Belmelo gateway is suppressed before spoken playback.
 
 This one-time installer prepares existing ESPHome Assist microphones for Ask Belle. Microphone firmware, pairing and existing home permissions are kept. Everyday choices stay in **Ask Belle → More options → Set up room microphones**.
 

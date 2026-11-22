@@ -25,7 +25,8 @@ class BelleConversation(BelleEntity, ConversationEntity):
         continuing = False
         try:
             value = await self.client.converse(user_input.text, ident, user_input.device_id)
-            response.async_set_speech(value["text"])
+            if value.get("silent") is not True:
+                response.async_set_speech(value["text"])
             continuing = value.get("continue_conversation") is True
         except VoiceConnectionError as err:
             response.async_set_error(intent.IntentResponseErrorCode.FAILED_TO_HANDLE, str(err))
