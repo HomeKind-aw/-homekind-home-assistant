@@ -143,7 +143,7 @@ class Handler(BaseHTTPRequestHandler):
             '<h1>Prepare Belle</h1><p>One setup action, then return to Belmelo to connect your microphone and hear its reply.</p>'
             + ('<p class="status" role="status">' + html.escape(message) + '</p>' if message else '')
             + '<form method="post"><input type="hidden" name="nonce" value="' + NONCE + '"><input type="hidden" name="operation" value="prepare">'
-            + ('<p><label><input type="checkbox" name="pilot" value="yes"> Include the Hey Belle pilot</label><br><small>Optional experimental phrase. Your current phrase stays selected until you choose Hey Belle in Belmelo. Household accuracy is still being checked.</small></p>' if (MODEL_SOURCE/'release.json').is_file() else '')
+            + ('<input type="hidden" name="pilot" value="yes"><p>Includes the Hey Belle pilot wake phrase for new microphones.</p>' if (MODEL_SOURCE/'release.json').is_file() else '')
             + '<button>Prepare Belle</button></form>'
             '<ol><li>Restart Home Assistant once from Settings → System after preparation.</li><li><a href="https://app.belmelo.com/household?room-microphones=1" target="_blank" rel="noopener">Return to room microphones in Belmelo</a>. Your saved connection picks up from there.</li></ol>'
             '<details><summary>What is included?</summary><p>Only the Belmelo Voice integration and any pilot model you selected. Existing pairing, microphone firmware, home controls and sharing choices are kept. Home Assistant is not restarted automatically. You can remove this setup app after connecting.</p></details>'
