@@ -1,10 +1,12 @@
 # Belmelo Voice setup
 
-**0.3.2 candidate — 22 November 2026.** An interrupted spoken request now releases the next request immediately after the interrupted pipeline stops. If two requests hear the same words, each keeps its own transcription turn. The guided setup protocol still reports 0.3.0 for compatibility. Pairing shows ESPHome Assist microphones only. Incidental conversation reported by the Belmelo gateway is suppressed before spoken playback.
+**0.3.3 — 22 November 2026.** Prepare Belle includes the custom wake phrase. Newly added microphones pick Hey Belle when the hardware reports it; existing wake settings are preserved.
+
+**0.3.2.** An interrupted spoken request now releases the next request immediately after the interrupted pipeline stops. If two requests hear the same words, each keeps its own transcription turn. The guided setup protocol still reports 0.3.0 for compatibility. Pairing shows ESPHome Assist microphones only. Incidental conversation reported by the Belmelo gateway is suppressed before spoken playback.
 
 This one-time installer prepares existing ESPHome Assist microphones for Ask Belle. Microphone firmware, pairing and existing home permissions are kept. Everyday choices stay in **Ask Belle → More options → Set up room microphones**.
 
-1. On the first installation or when updating the integration, open **Belmelo Voice setup**, choose **Prepare Belle**, then restart Home Assistant once. If you want the optional experimental Hey Belle phrase, tick **Include the Hey Belle pilot** before preparation so both packages use the same restart.
+1. On the first installation or when updating the integration, open **Belmelo Voice setup**, choose **Prepare Belle**, then restart Home Assistant once. Preparation includes the Hey Belle pilot model.
 2. Return to **Room microphones** in Belmelo. The guided screen resumes with the microphone’s actual connection report. A new microphone needs one expiring pairing code in Home Assistant; an already paired microphone skips that step. Choose **Connect to Belle** if its assistant needs connecting. This selects only that microphone’s own dedicated Belle pipeline, after an explicit authorised request that expires after 90 seconds. Ordinary restarts keep local assistant choices.
 3. Choose **Start spoken check**, say the displayed wake phrase followed by **“test Belle”**, then confirm that you heard Belle introduce herself. A fresh transcription, conversation and spoken reply through the paired pipeline must precede that confirmation. The check does not claim an independent intercepted wake event. The older two-utterance test remains available to older app versions.
 
@@ -26,7 +28,7 @@ The trained **Hey Belle 0.1.0** model is an optional household pilot. The option
 
 For a microphone already paired with Belle:
 
-1. In setup **0.3.1**, tick **Include the Hey Belle pilot**, then choose **Prepare Belle** and restart Home Assistant once.
+1. In setup **0.3.3**, choose **Prepare Belle** and restart Home Assistant once.
 2. Return to the guided microphone screen in Belmelo. Open **Change wake phrase**, select **Hey Belle · pilot**, then choose **Use this phrase**. A compatible satellite downloads the fixed model locally. Wait for its actual active-phrase report.
 3. Complete the one-phrase spoken check, then check a real home command in that room.
 
