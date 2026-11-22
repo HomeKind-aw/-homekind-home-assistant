@@ -6,6 +6,7 @@ import io
 import time
 import uuid
 import wave
+from weakref import WeakKeyDictionary
 from aiohttp import ClientError, ClientTimeout
 from .const import API_URL, MAX_PCM, MAX_REPLY
 
@@ -58,7 +59,9 @@ class BelleClient:
         self.microphone = data["microphone"]
         self.name = data["name"]
         self.lock = asyncio.Lock()
-        self.pending = None
+        # Assist awaits transcription and conversation in the same run task.
+        # An aborted run must neither block nor lend its turn ID to a new run.
+        self.pending = WeakKeyDictionary()
         self.history = OrderedDict()
         self.replies = OrderedDict()
 
@@ -74,9 +77,12 @@ class BelleClient:
         return await _request(self.session, data=body, headers=self.headers(str(uuid.uuid4())))
 
     async def transcribe(self, stream):
-        if self.lock.locked() or self.pending and time.monotonic() - self.pending[2] < 45:
+        if self.lock.locked():
             raise VoiceConnectionError("A voice request is already in progress.")
+        request_task = asyncio.current_task()
+        assert request_task is not None
         async with self.lock:
+            self.pending.pop(request_task, None)
             chunks = []
             size = 0
             async for chunk in stream:
@@ -95,7 +101,7 @@ class BelleClient:
             value = await _request(self.session, audio=make_wave(raw), headers=self.headers(turn, audio=True))
             if not isinstance(value.get("text"), str) or not value["text"].strip():
                 raise VoiceConnectionError("Belle did not catch a request.")
-            self.pending = (turn, value["text"], time.monotonic())
+            self.pending[request_task] = (turn, value["text"], time.monotonic())
             return value["text"]
 
     async def converse(self, text, conversation_id, device_id):
@@ -104,8 +110,11 @@ class BelleClient:
         if self.lock.locked():
             raise VoiceConnectionError("A voice request is already in progress.")
         async with self.lock:
-            turn = self.pending[0] if self.pending and self.pending[1] == text and time.monotonic() - self.pending[2] < 45 else str(uuid.uuid4())
-            self.pending = None
+            pending = self.pending.pop(asyncio.current_task(), None)
+            if pending and pending[1] == text and time.monotonic() - pending[2] < 45:
+                turn = pending[0]
+            else:
+                turn = str(uuid.uuid4())
             previous = self.history.get(conversation_id)
             body = {"operation":"converse", "text":text}
             if previous and time.monotonic() - previous[1] < 280:

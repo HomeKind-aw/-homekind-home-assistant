@@ -1,12 +1,22 @@
 {
   "title": "Belmelo Voice",
   "config": {
-    "step": {"user": {
-      "title": "Connect a room microphone to Belle",
-      "description": "In Belmelo, open Ask Belle → More options → Room microphones. Choose the room and shared voice access, then copy its ten-minute pairing code here. Select the M5Stack microphone that will use this room profile.",
-      "data": {"pairing_code":"Belmelo pairing code","microphone":"Room microphone"}
-    }},
-    "error": {"cannot_connect":"Pairing could not be completed. Check the code, enabled AI choices and home connection in Belmelo."},
-    "abort": {"reconfigured":"This microphone's Belle connection has been updated."}
+    "step": {
+      "user": {
+        "title": "Connect a room microphone to Belle",
+        "description": "In Belmelo, open Ask Belle \u2192 More options \u2192 Room microphones. Choose the room and shared voice access, then copy its ten-minute pairing code here. Select the M5Stack microphone that will use this room profile.",
+        "data": {
+          "pairing_code": "Belmelo pairing code",
+          "microphone": "Room microphone"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Pairing could not be completed. Check the code, enabled AI choices and home connection in Belmelo.",
+      "choose_voice_satellite": "Choose an ESPHome microphone with an enabled Assist satellite."
+    },
+    "abort": {
+      "reconfigured": "This microphone's Belle connection has been updated."
+    }
   }
 }
