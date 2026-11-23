@@ -159,11 +159,45 @@ class SystemUpdater:
         finally:
             os.close(fd)
 
+    def recover_before_dispatch(self):
+        """One fresh attempt per exact Core target; never replay a dispatched POST."""
+        j = self.job
+        marker = self.c.directory / 'system-retries' / (j['component'] + '-' + j['target'] + '.json')
+        if j['component'] != 'core' or j['stage'] != 'backup' or not j['backup_id'] or marker.exists():
+            return
+        enabled, scope = self.local()
+        data = self.journal.read()
+        if not enabled or scope != j['scope'] or not data or not data['inflight'] or data['inflight']['operation_id'] != j['id'] or data['inflight']['phase'] != 'unknown' or data['policy']['revision'] != j['revision'] or not data['policy']['enabled'] or data['paused'] or data['defer_until']:
+            return
+        if not self.authorise() or not self.approved(j['component'], j['target']) or not self.ready():
+            return
+        try:
+            self.backup()
+            info = self.c.supervisor('/core/info', timeout=2)
+            if info.get('version') != j['before'] or info.get('version_latest') != j['target'] or info.get('version_pending'):
+                return
+            # These writes happen under the same exclusive executor lock. A
+            # crash after the marker leaves the operation held, never replayed.
+            atomic(self.c.directory / 'system-failures' / (j['id'] + '.json'), j)
+            atomic(marker, {'schema': 1, 'operation_id': j['id']})
+            with self.journal.locked():
+                current = self.journal.read()
+                if current != data:
+                    return
+                current['last_occurrence'] = current['inflight']['occurrence']
+                current['inflight'] = None
+                atomic(self.journal.path, current)
+            j['phase'] = 'cancelled'
+            self.save()
+        except (MaintenanceError, OSError, ValueError):
+            return
+
     def _step(self):
         # Reload under the process lock. A second executor cannot dispatch the
         # same pre-operation phase; the reservation also survives restart.
         j = self.job
         if j and j['phase'] == 'failed':
+            self.recover_before_dispatch()
             return
         if j and j['phase'] == 'unknown':
             # Recovery is observation only: never repeat an uncertain POST.

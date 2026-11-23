@@ -221,7 +221,7 @@ class SystemUpdateTests(unittest.TestCase):
         with redirect_stdout(output): self.engine.step()
         self.assertEqual(output.getvalue(),'System configuration check: timed out; update held.\n')
         self.assertEqual(self.engine.job['phase'],'failed')
-        before=self.engine.path.read_bytes();self.engine=self.new();self.engine.step()
+        before=self.engine.path.read_bytes();self.authority=False;self.engine=self.new();self.engine.step()
         self.assertEqual(self.engine.path.read_bytes(),before)
         self.assertNotIn('/core/update',[p for p,b in self.posts])
 
@@ -255,5 +255,45 @@ class SystemUpdateTests(unittest.TestCase):
         self.c.call=lambda *a,**k: (_ for _ in ()).throw(MaintenanceError('private response never exported'))
         self.assertEqual(self.engine.readiness(),'readiness_unavailable');self.assertFalse(self.engine.ready())
         self.assertEqual(self.posts,[])
+
+
+    def test_pre_dispatch_failure_recovers_once_with_fresh_backup_next_window(self):
+        self.through_backup();self.fail_route='/core/check';self.engine.step()
+        failed=dict(self.engine.job);self.fail_route=None
+        self.engine=self.new();self.engine.step()
+        self.assertEqual(self.engine.job['phase'],'cancelled')
+        self.assertEqual(json.loads((self.c.directory/'system-failures'/(failed['id']+'.json')).read_text()),failed)
+        self.assertIsNone(self.journal.read()['inflight'])
+        self.engine.step();self.assertIsNone(self.engine.job)
+        self.now+=86400;self.through_backup();self.engine.step()
+        self.assertEqual(self.engine.job['phase'],'update')
+        self.assertEqual([p for p,b in self.posts].count('/backups/new/full'),2)
+        self.assertEqual([p for p,b in self.posts].count('/core/update'),1)
+
+    def test_second_configuration_failure_is_not_retried(self):
+        self.through_backup();self.fail_route='/core/check';self.engine.step();self.engine.step()
+        self.now+=86400;self.through_backup();self.engine.step()
+        self.assertEqual(self.engine.job['phase'],'failed')
+        original=self.engine.path.read_bytes()
+        for _ in range(3):self.engine=self.new();self.engine.step()
+        self.assertEqual(original,self.engine.path.read_bytes())
+
+    def test_pre_dispatch_recovery_keeps_optout_approval_and_backup_checks(self):
+        self.through_backup();self.fail_route='/core/check';self.engine.step()
+        for block in ('optout','approval','pending','backup'):
+            self.options['allow_system_updates']=block!='optout'
+            self.engine.approved=lambda c,v: block!='approval'
+            self.core['version_pending']='2026.10.2' if block=='pending' else None
+            self.bad_backup=block=='backup'
+            self.engine.step();self.assertEqual(self.engine.job['phase'],'failed')
+        self.assertNotIn('/core/update',[p for p,b in self.posts])
+
+    def test_dispatched_or_unknown_operations_never_enter_retry_recovery(self):
+        self.through_backup()
+        for stage in ('update','reboot','verify'):
+            self.engine.job.update(phase='failed',stage=stage)
+            self.engine.save();before=self.engine.path.read_bytes()
+            self.engine.step();self.assertEqual(self.engine.path.read_bytes(),before)
+        self.assertFalse((self.c.directory/'system-retries').exists())
 
 if __name__=='__main__': unittest.main()
