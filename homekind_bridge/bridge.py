@@ -637,12 +637,17 @@ class Connector:
             heartbeat = self.clock() >= self.next_sync
             if self.stream_connected and heartbeat:
                 # Re-observe quiet entities every ten seconds, independently of busy inputs.
-                for state in list(self.current.values()):
-                    if state["entity_id"] in tracked and not any(v["entity_id"] == state["entity_id"] for v in self.pending.values()) and len(self.pending) < MAX_PENDING:
+                queued = {reading["entity_id"] for reading in self.pending.values()}
+                for state in self.current.values():
+                    if len(self.pending) >= MAX_PENDING:
+                        break
+                    entity = state["entity_id"]
+                    if entity in tracked and entity not in queued:
                         clean = observation(state)
                         clean["observed_at"] = self.stamp()
                         clean["event_id"] = hashlib.sha256(json.dumps({k:v for k,v in clean.items() if k != "observed_at"}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
                         self.pending[pending_key(clean)] = clean
+                        queued.add(entity)
                 # Persist one heartbeat batch, rather than fsync once per cached entity.
                 self.save_pending()
             connected = self.stream_connected

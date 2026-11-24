@@ -1,3 +1,7 @@
+## 0.25.11 — 25 November 2026
+
+- Reuse the pending entity lookup during heartbeats and keep the existing reading order and queue limit.
+
 ## 0.25.10 — 25 November 2026
 
 - Reduce repeated catalogue serialisation when adding devices. Keep the same discovery order and payload limit.
