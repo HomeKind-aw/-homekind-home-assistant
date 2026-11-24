@@ -75,6 +75,22 @@ class OnboardingTests(unittest.TestCase):
         self.assertNotIn('21.8', json.dumps(rows))
         self.assertEqual(rows[0]['fingerprint'], ob.fingerprint(rows[0]))
 
+    def test_discovery_byte_limit_keeps_the_same_sorted_unicode_prefix(self):
+        states = [
+            {**STATE, 'entity_id': f'sensor.test_{i:03d}',
+             'attributes': {**STATE['attributes'], 'friendly_name': f'{i:03d} ' + '🏠' * 100}}
+            for i in range(ob.MAX_CANDIDATES)
+        ]
+        metadata = {state['entity_id']: {'ha_device_id': 'é' * 200} for state in states}
+        baseline = {state['entity_id'] for state in states[::2]}
+        rows = ob.candidates(states, metadata, baseline)
+        self.assertTrue(0 < len(rows) < ob.MAX_CANDIDATES)
+        ordered = states[1::2] + states[::2]
+        expected = ob.candidates(ordered[len(rows):len(rows) + 1], metadata, baseline)
+        self.assertEqual([row['entity_id'] for row in rows], [state['entity_id'] for state in ordered[:len(rows)]])
+        self.assertLessEqual(len(json.dumps(rows, ensure_ascii=False).encode('utf-8')), 250000)
+        self.assertGreater(len(json.dumps(rows + expected, ensure_ascii=False).encode('utf-8')), 250000)
+
     def test_z2m_uses_exact_local_discovery_and_refuses_guessed_topics(self):
         cfg = {'device': {'manufacturer': 'Zigbee2MQTT', 'model': 'Bridge'}, 'command_topic': 'my_home/bridge/request/permit_join', 'state_topic': 'my_home/bridge/info', 'payload_off': '{"time":0}'}
         info = lambda c: {'entities': [{'discovery_data': {'payload': c}}]}

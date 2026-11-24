@@ -47,8 +47,11 @@ def candidates(states, metadata=None, baseline=None):
         rows.append(row)
     rows.sort(key=lambda r: (not r["new"], r["name"].casefold(), r["entity_id"]))
     rows = rows[:MAX_CANDIDATES]
-    while rows and len(json.dumps(rows, ensure_ascii=False).encode()) > 250000:
-        rows.pop()
+    size = 2  # JSON array brackets.
+    for index, row in enumerate(rows):
+        size += len(json.dumps(row, ensure_ascii=False).encode("utf-8")) + (2 if index else 0)
+        if size > 250000:
+            return rows[:index]
     return rows
 
 
