@@ -5,6 +5,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'bridge'))
 from homekind_maintenance.system_updates import SystemUpdater,IDLE_TEMPLATE
@@ -73,6 +74,69 @@ class SystemUpdateTests(unittest.TestCase):
         self.assertEqual(len(self.posts[0][1]['password']),64)
         self.assertFalse(self.posts[0][1]['homeassistant_exclude_database'])
 
+    def test_restart_before_reservation_discards_only_the_undispatched_job(self):
+        with patch.object(self.journal, 'reserve', side_effect=SystemExit):
+            with self.assertRaises(SystemExit):
+                self.engine.step()
+        previous = self.new().job['id']
+        self.assertIsNone(self.journal.read()['inflight'])
+
+        self.engine = self.new()
+        self.engine.step()
+        self.assertEqual(self.engine.job['phase'], 'cancelled')
+        self.engine.step()
+        self.assertNotEqual(self.engine.job['id'], previous)
+        self.assertEqual(self.journal.read()['inflight']['operation_id'], self.engine.job['id'])
+        self.assertEqual(self.posts, [])
+
+    def test_restart_after_reservation_retains_its_saved_job(self):
+        reserve = self.journal.reserve
+
+        def interrupted(*args, **kwargs):
+            reserve(*args, **kwargs)
+            raise SystemExit
+
+        with patch.object(self.journal, 'reserve', side_effect=interrupted):
+            with self.assertRaises(SystemExit):
+                self.engine.step()
+
+        self.engine = self.new()
+        self.assertEqual(self.journal.read()['inflight']['operation_id'], self.engine.job['id'])
+        self.now += 31
+        self.engine.step()
+        self.engine.step()
+        self.assertEqual([p for p, _ in self.posts], ['/backups/new/full'])
+
+    def test_restart_closes_verified_receipt_without_replaying_update(self):
+        self.through_backup()
+        for _ in range(3):
+            self.engine.step()
+        self.now += 61
+        with patch.object(self.journal, 'finish', side_effect=SystemExit):
+            with self.assertRaises(SystemExit):
+                self.engine.step()
+
+        self.engine = self.new()
+        self.assertEqual(self.engine.job['phase'], 'healthy')
+        self.engine.step()
+        self.assertIsNone(self.journal.read()['inflight'])
+        self.assertEqual(self.new().job['phase'], 'healthy')
+        self.assertEqual([p for p, _ in self.posts].count('/core/update'), 1)
+
+    def test_restart_closes_cancelled_receipt_without_dispatch(self):
+        self.engine.step()
+        self.now += 31
+        self.options['allow_system_updates'] = False
+        with patch.object(self.journal, 'cancel_before_update', side_effect=SystemExit):
+            with self.assertRaises(SystemExit):
+                self.engine.step()
+
+        self.engine = self.new()
+        self.assertEqual(self.engine.job['phase'], 'cancelled')
+        self.engine.step()
+        self.assertIsNone(self.journal.read()['inflight'])
+        self.assertEqual(self.posts, [])
+
     def test_local_or_cloud_opt_out_active_use_and_outside_window_never_dispatch(self):
         for flag in ('allow_updates','allow_system_updates'):
             self.options[flag]=False;self.engine.step();self.assertIsNone(self.engine.job);self.options[flag]=True
@@ -90,6 +154,57 @@ class SystemUpdateTests(unittest.TestCase):
     def test_opt_out_after_backup_prevents_update(self):
         self.through_backup();self.options['allow_system_updates']=False;self.engine.step()
         self.assertNotIn('/core/update',[p for p,b in self.posts])
+
+    def test_local_opt_out_or_schedule_change_during_readiness_prevents_update(self):
+        self.through_backup()
+        ready = self.engine.ready
+        changes = [
+            lambda: self.options.update(allow_system_updates=False),
+            lambda: self.journal.hold(expected_revision=1, paused=False),
+        ]
+        for change in changes:
+            with self.subTest(change=change):
+                def change_on_ready():
+                    if ready_check.call_count == 2:
+                        change()
+                    return ready()
+
+                with patch.object(self.engine, 'ready', side_effect=change_on_ready) as ready_check:
+                    self.engine.step()
+                self.assertEqual(self.engine.job['phase'], 'backup_done')
+                self.assertNotIn('/core/update', [p for p, _ in self.posts])
+                self.options['allow_system_updates'] = True
+
+    def test_recheck_local_scope_after_saving_the_dispatch_fence(self):
+        self.through_backup()
+        save = self.engine.save
+
+        def change_pairing():
+            save()
+            if self.engine.job['phase'] == 'update_dispatch':
+                self.c.data['credential']['token'] = 'b' * 64
+
+        with patch.object(self.engine, 'save', side_effect=change_pairing):
+            self.engine.step()
+
+        self.assertEqual(self.new().job['phase'], 'backup_done')
+        self.assertNotIn('/core/update', [p for p, _ in self.posts])
+
+    def test_schedule_change_at_the_backup_dispatch_fence_blocks_the_backup(self):
+        self.engine.step()
+        self.now += 31
+        save = self.engine.save
+
+        def change_schedule():
+            save()
+            if self.engine.job['phase'] == 'backup_dispatch':
+                self.journal.hold(expected_revision=1, paused=False)
+
+        with patch.object(self.engine, 'save', side_effect=change_schedule):
+            self.engine.step()
+
+        self.assertEqual(self.new().job['phase'], 'preparing')
+        self.assertEqual(self.posts, [])
 
     def test_lost_update_reply_recovers_by_version_observation_without_replay(self):
         self.through_backup();self.fail_route='/core/update';self.engine.step()
@@ -136,6 +251,38 @@ class SystemUpdateTests(unittest.TestCase):
         self.now+=3*3600;self.engine.step()
         self.assertEqual(self.engine.job['phase'],'unknown')
         self.assertNotIn('/host/reboot',[p for p,b in self.posts])
+
+    def test_os_opt_out_during_pre_reboot_backup_check_blocks_reboot(self):
+        self.core['version_latest'] = self.core['version']
+        self.through_backup()
+        self.engine.step()
+        self.assertEqual(self.engine.job['phase'], 'os_ready')
+        backup = self.engine.backup
+
+        def opt_out():
+            backup()
+            self.options['allow_system_updates'] = False
+
+        with patch.object(self.engine, 'backup', side_effect=opt_out):
+            self.engine.step()
+
+        self.assertEqual(self.new().job['phase'], 'os_ready')
+        self.assertNotIn('/host/reboot', [p for p, _ in self.posts])
+
+    def test_pending_os_proof_after_lost_reply_allows_only_the_distinct_reboot(self):
+        self.core['version_latest'] = self.core['version']
+        self.through_backup()
+        self.fail_route = '/os/update'
+        self.engine.step()
+        self.assertEqual(self.engine.job['phase'], 'unknown')
+
+        self.engine = self.new()
+        self.engine.step()
+        self.assertEqual(self.engine.job['phase'], 'os_ready')
+        self.engine.step()
+        routes = [p for p, _ in self.posts]
+        self.assertEqual(routes.count('/os/update'), 1)
+        self.assertEqual(routes.count('/host/reboot'), 1)
 
     def test_corrupt_job_is_preserved_and_not_replaced(self):
         self.engine.path.write_text('{bad')
@@ -197,6 +344,22 @@ class SystemUpdateTests(unittest.TestCase):
             return original(path,payload,timeout)
         self.c.supervisor=supervisor;self.engine.step()
         self.assertNotIn('/core/update',[p for p,b in self.posts])
+
+    def test_target_changing_during_configuration_check_prevents_installation(self):
+        self.through_backup()
+        original = self.c.supervisor
+
+        def supervisor(path, payload=None, timeout=25):
+            if path == '/core/check':
+                self.core['version_latest'] = '2026.10.3'
+                return {}
+            return original(path, payload, timeout)
+
+        self.c.supervisor = supervisor
+        self.engine.step()
+
+        self.assertEqual(self.engine.job['phase'], 'failed')
+        self.assertNotIn('/core/update', [path for path, _ in self.posts])
 
     def test_revoked_approval_during_configuration_check_prevents_installation(self):
         self.through_backup();original=self.c.supervisor
@@ -277,6 +440,29 @@ class SystemUpdateTests(unittest.TestCase):
         original=self.engine.path.read_bytes()
         for _ in range(3):self.engine=self.new();self.engine.step()
         self.assertEqual(original,self.engine.path.read_bytes())
+
+    def test_restart_after_retry_marker_reconciles_same_failure_and_spends_one_retry(self):
+        self.through_backup()
+        self.fail_route = '/core/check'
+        self.engine.step()
+        job = self.engine.job['id']
+        with patch.object(self.engine, 'save', side_effect=SystemExit):
+            with self.assertRaises(SystemExit):
+                self.engine.step()
+        self.engine = self.new()
+        self.assertEqual(self.engine.job['phase'], 'failed')
+        self.assertEqual(json.loads(self.engine.retry_marker().read_text())['operation_id'], job)
+
+        self.engine.step()
+        self.assertEqual(self.engine.job['phase'], 'cancelled')
+        self.assertIsNone(self.journal.read()['inflight'])
+        self.now += 86400
+        self.through_backup()
+        self.engine.step()
+        self.engine.step()
+        self.assertEqual(self.engine.job['phase'], 'failed')
+        self.assertEqual([p for p, _ in self.posts].count('/backups/new/full'), 2)
+        self.assertNotIn('/core/update', [p for p, _ in self.posts])
 
     def test_pre_dispatch_recovery_keeps_optout_approval_and_backup_checks(self):
         self.through_backup();self.fail_route='/core/check';self.engine.step()

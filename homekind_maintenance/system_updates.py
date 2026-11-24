@@ -82,30 +82,38 @@ class SystemUpdater:
         except (MaintenanceError, OSError, ValueError, KeyError, TypeError):
             return 'readiness_unavailable'
 
-    def eligible(self, estimate=1800):
-        enabled, scope = self.local()
-        data = self.journal.read()
-        if not enabled or not data or self.job and self.job['scope'] != scope:
+    def window_open(self, data, estimate=1800, allow_staged_os=False):
+        if not data:
             return False
-        if self.job and data['policy']['revision'] != self.job['revision']:
-            return False
-        if not self.authorise():
-            return False
-        if self.job and not self.approved(self.job['component'], self.job['target']):
-            return False
-        # Re-read after cloud permission and before each disruptive request.
-        enabled, current = self.local()
-        if not enabled or current != scope or not self.ready():
-            return False
-        data = self.journal.read()
+        if self.job:
+            reservation = data['inflight']
+            if (data['policy']['revision'] != self.job['revision'] or not reservation
+                    or reservation['operation_id'] != self.job['id']
+                    or reservation['phase'] != 'reserved' and not allow_staged_os):
+                return False
         verdict = evaluate(data['policy'],datetime.fromtimestamp(self.c.clock(),timezone.utc),
             estimate_seconds=estimate,locally_enabled=True,authority_current=True,
             service_ready=True,active_use=False,paused=data['paused'],
             defer_until=datetime.fromisoformat(data['defer_until']) if data['defer_until'] else None,
             last_occurrence=data['last_occurrence'],
             last_started_at=datetime.fromisoformat(data['last_started_at']) if data['last_started_at'] else None,
-            inflight=None)
+            inflight=None if self.job else data['inflight'])
         return verdict['eligible']
+
+    def eligible(self, estimate=1800):
+        enabled, scope = self.local()
+        data = self.journal.read()
+        staged_os = bool(self.job and self.job['phase'] == 'os_ready')
+        if (not enabled or self.job and self.job['scope'] != scope
+                or not self.window_open(data, estimate, staged_os) or not self.authorise()):
+            return False
+        if self.job and not self.approved(self.job['component'], self.job['target']):
+            return False
+        if not self.ready():
+            return False
+        enabled, current = self.local()
+        latest = self.journal.read()
+        return enabled and current == scope and latest == data and self.window_open(latest, estimate, staged_os)
 
     def backup(self):
         j = self.job
@@ -118,10 +126,29 @@ class SystemUpdater:
         if b.get('slug') != j['backup_id'] or b.get('type') != 'full' or b.get('protected') is not True or b.get('homeassistant') != j['core_before'] or b.get('extra',{}).get('homekind_operation') != j['id'] or not local or isinstance(attrs,dict) and attrs.get('protected') is not True or b.get('homeassistant_exclude_database') is not False:
             raise MaintenanceError('The complete encrypted local backup could not be verified.')
 
+    def verify_target(self):
+        job = self.job
+        info = self.c.supervisor('/' + job['component'] + '/info', timeout=2)
+        if (info.get('version') != job['before'] or info.get('version_latest') != job['target']
+                or info.get('version_pending')):
+            raise MaintenanceError('The available update changed; review it first.')
+
     def post_once(self, stage, path, payload):
         j = self.job
+        previous = j.copy()
         j.update(phase=stage+'_dispatch',stage=stage,job_id=None)
         self.save()
+        # Backup, target verification and the durable write can all take time.
+        # Make the final local permission check after them, before touching HA.
+        estimate = 900 if stage == 'reboot' else 1800
+        try:
+            current = self.local() == (True, j['scope']) and self.window_open(self.journal.read(), estimate, stage == 'reboot')
+        except (MaintenanceError, OSError, ValueError, TypeError):
+            current = False
+        if not current:
+            j.update(previous)
+            self.save()
+            return
         response = self.c.supervisor(path,payload)
         # A reboot can terminate its HTTP response. The persisted dispatch fence
         # remains; restart verification observes the version without rebooting twice.
@@ -143,9 +170,33 @@ class SystemUpdater:
     def cancel(self):
         if self.job['phase'] not in ('preparing','backup_done'):
             raise WindowError('A dispatched update cannot be cancelled automatically.')
-        self.journal.cancel_before_update(self.job['id'])
-        self.job['phase']='cancelled'
+        self.finish('cancelled')
+
+    def finish(self, phase):
+        # Write the outcome before closing its reservation. A restart can finish
+        # the remaining write using the exact saved operation, with no HA call.
+        self.job['phase'] = phase
         self.save()
+        self.reconcile_receipt()
+
+    def retry_marker(self):
+        job = self.job
+        return self.c.directory / 'system-retries' / (job['component'] + '-' + job['target'] + '.json')
+
+    def reconcile_receipt(self):
+        job = self.job
+        if self.local()[1] != job['scope']:
+            return
+        data = self.journal.read()
+        reservation = data and data['inflight']
+        if not reservation or reservation['operation_id'] != job['id']:
+            return
+        if job['phase'] == 'healthy':
+            self.journal.finish(job['id'], verified=True)
+        elif reservation['phase'] == 'reserved':
+            self.journal.cancel_before_update(job['id'])
+        elif self.retry_marker().exists() and json.loads(self.retry_marker().read_text()) == {'schema': 1, 'operation_id': job['id']}:
+            self.journal.finish(job['id'], verified=True)
 
     def step(self):
         fd = os.open(self.path.with_suffix('.lock'), os.O_RDWR | os.O_CREAT | getattr(os,'O_NOFOLLOW',0),0o600)
@@ -162,9 +213,10 @@ class SystemUpdater:
     def recover_before_dispatch(self):
         """One fresh attempt per exact Core target; never replay a dispatched POST."""
         j = self.job
-        marker = self.c.directory / 'system-retries' / (j['component'] + '-' + j['target'] + '.json')
-        if j['component'] != 'core' or j['stage'] != 'backup' or not j['backup_id'] or marker.exists():
+        if j['component'] != 'core' or j['stage'] != 'backup' or not j['backup_id']:
             return
+        marker = self.retry_marker()
+        retry = {'schema': 1, 'operation_id': j['id']}
         enabled, scope = self.local()
         data = self.journal.read()
         if not enabled or scope != j['scope'] or not data or not data['inflight'] or data['inflight']['operation_id'] != j['id'] or data['inflight']['phase'] != 'unknown' or data['policy']['revision'] != j['revision'] or not data['policy']['enabled'] or data['paused'] or data['defer_until']:
@@ -172,23 +224,19 @@ class SystemUpdater:
         if not self.authorise() or not self.approved(j['component'], j['target']) or not self.ready():
             return
         try:
-            self.backup()
-            info = self.c.supervisor('/core/info', timeout=2)
-            if info.get('version') != j['before'] or info.get('version_latest') != j['target'] or info.get('version_pending'):
+            if marker.exists() and json.loads(marker.read_text()) != retry:
                 return
-            # These writes happen under the same exclusive executor lock. A
-            # crash after the marker leaves the operation held, never replayed.
-            atomic(self.c.directory / 'system-failures' / (j['id'] + '.json'), j)
-            atomic(marker, {'schema': 1, 'operation_id': j['id']})
+            self.backup()
+            self.verify_target()
+            if self.local() != (True, scope):
+                return
             with self.journal.locked():
-                current = self.journal.read()
-                if current != data:
+                if self.journal.read() != data:
                     return
-                current['last_occurrence'] = current['inflight']['occurrence']
-                current['inflight'] = None
-                atomic(self.journal.path, current)
-            j['phase'] = 'cancelled'
-            self.save()
+                if not marker.exists():
+                    atomic(self.c.directory / 'system-failures' / (j['id'] + '.json'), j)
+                    atomic(marker, retry)
+            self.finish('cancelled')
         except (MaintenanceError, OSError, ValueError):
             return
 
@@ -213,11 +261,13 @@ class SystemUpdater:
                 pass
             return
         if j and j['phase'] in ('healthy','cancelled'):
+            self.reconcile_receipt()
             self.job = None
         try:
             if self.job is None:
                 data = self.journal.read()
-                if not data or data['inflight'] or not self.eligible():
+                enabled, scope = self.local()
+                if not enabled or not self.window_open(data) or not self.eligible():
                     return
                 core = self.c.supervisor('/core/info', timeout=2)
                 for component in ('core','os'):
@@ -228,17 +278,25 @@ class SystemUpdater:
                     pattern = r'[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,3}' if component == 'core' else r'[0-9]{1,3}\.[0-9]{1,3}'
                     if not re.fullmatch(pattern, before) or not re.fullmatch(pattern, target) or tuple(map(int,target.split('.'))) <= tuple(map(int,before.split('.'))) or not self.approved(component,target):
                         continue
-                    ident = str(uuid.uuid4())
-                    verdict = self.journal.reserve(ident,datetime.fromtimestamp(self.c.clock(),timezone.utc),
-                        expected_revision=data['policy']['revision'],estimate_seconds=1800,
-                        locally_enabled=True,authority_current=True,service_ready=True,active_use=False)
-                    if not verdict['eligible']:
+                    if self.local() != (True, scope):
                         return
+                    ident = str(uuid.uuid4())
                     self.job = dict(schema=1,id=ident,component=component,before=before,target=target,
                         core_before=core['version'],revision=data['policy']['revision'],created_at=self.c.clock(),
                         phase='preparing',stage='preparing',password=secrets.token_hex(32),backup_id=None,
-                        job_id=None,healthy_since=None,scope=self.local()[1])
+                        job_id=None,healthy_since=None,scope=scope)
                     self.save()
+                    try:
+                        verdict = self.journal.reserve(ident,datetime.fromtimestamp(self.c.clock(),timezone.utc),
+                            expected_revision=data['policy']['revision'],estimate_seconds=1800,
+                            locally_enabled=self.local() == (True, scope),authority_current=True,
+                            service_ready=True,active_use=False)
+                    except WindowError:
+                        self.cancel();return
+                    except OSError:
+                        return  # The saved pre-dispatch job is reconciled on the next step.
+                    if not verdict['eligible']:
+                        self.cancel()
                     return
                 return
             j = self.job
@@ -254,6 +312,9 @@ class SystemUpdater:
                     self.cancel();return
                 raise MaintenanceError('The maintenance outcome needs review.')
             if j['phase'] == 'preparing':
+                reservation = (self.journal.read() or {}).get('inflight')
+                if not reservation or reservation['operation_id'] != j['id']:
+                    self.cancel();return
                 # Give the cloud maintenance fence and any already dispatched
                 # short control leases time to settle before taking HA offline.
                 if self.c.clock()-j['created_at'] < 30:
@@ -275,9 +336,7 @@ class SystemUpdater:
                 if not self.eligible():
                     self.cancel();return
                 self.backup()
-                info = self.c.supervisor('/'+j['component']+'/info',timeout=2)
-                if info.get('version') != j['before'] or info.get('version_latest') != j['target'] or info.get('version_pending'):
-                    raise MaintenanceError('The available update changed; review it first.')
+                self.verify_target()
                 if j['component'] == 'core':
                     # Supervisor runs this validation synchronously. A Green can
                     # need longer than an ordinary API request. Keep it bounded,
@@ -291,6 +350,8 @@ class SystemUpdater:
                         raise
                 if not self.eligible():
                     return
+                if j['component'] == 'core':
+                    self.verify_target()
                 payload = {'version':j['target']}
                 if j['component'] == 'core': payload.update(backup=False,background=True)
                 self.post_once('update','/'+j['component']+'/update',payload)
@@ -307,9 +368,13 @@ class SystemUpdater:
                 else:
                     j['healthy_since']=j['healthy_since'] if j['healthy_since'] is not None else self.c.clock()
                     if self.c.clock()-j['healthy_since']>=60:
-                        self.journal.finish(j['id'],verified=True);j['phase']='healthy'
+                        self.finish('healthy')
+                        return
                 self.save()
         except (MaintenanceError,WindowError,OSError,ValueError,KeyError,TypeError):
-            if self.job:
+            if self.job and self.job['phase'] not in ('healthy', 'cancelled'):
                 self.job['phase']='unknown' if self.job['phase'].endswith('_dispatch') or self.job['phase'] in ('update','verify','os_ready') else 'failed'
-                self.save();self.journal.finish(self.job['id'],verified=False)
+                self.save()
+                reservation = (self.journal.read() or {}).get('inflight')
+                if reservation and reservation['operation_id'] == self.job['id']:
+                    self.journal.finish(self.job['id'],verified=False)

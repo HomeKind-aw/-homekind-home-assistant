@@ -224,11 +224,12 @@ class WindowJournal:
             if value['revision'] == old:
                 if data['policy'] != value or data['paused'] != snapshot['paused'] or data['defer_until'] != defer:
                     raise WindowError('A revision cannot change its saved choices.')
-                return
+                return False
             if data is None:
                 data = {'schema': 1, 'last_occurrence': None, 'last_started_at': None, 'inflight': None}
             data.update(policy=value, paused=snapshot['paused'], defer_until=defer)
             atomic(self.path, data)
+            return True
 
     def reserve(self, operation_id, now, *, expected_revision, **context):
         if not isinstance(operation_id, str) or str(uuid.UUID(operation_id)) != operation_id:

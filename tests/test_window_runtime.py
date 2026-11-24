@@ -10,6 +10,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'bridge'))
 from homekind_maintenance.window_runtime import WindowRuntime
 from homekind_maintenance.windows import WindowError
+from homekind_maintenance.update_diagnostics import read_observation
 
 
 class WindowRuntimeTests(unittest.TestCase):
@@ -43,8 +44,56 @@ class WindowRuntimeTests(unittest.TestCase):
         nonce = self.sent[0]['report']['management_id']
         WindowRuntime(self.c).step()
         self.assertEqual(self.sent[2]['report']['management_id'], nonce)
+        self.assertEqual(len(self.sent), 3)
         self.assertNotIn('secret', json.dumps(self.sent))
         self.assertTrue(all(not r['can_install'] for r in self.sent[0]['report']['inventory']))
+
+    def test_ready_home_outside_window_reports_once_without_rechecking_authority(self):
+        self.c.token = 'synthetic-local'
+        self.c.options = lambda: {'allow_updates': True, 'allow_system_updates': True}
+        local_calls = []
+
+        def supervisor(path, timeout):
+            local_calls.append(path)
+            return {'version': '2026.10.1', 'version_latest': '2026.10.2',
+                    'healthy': True, 'supported': True, 'channel': 'stable'}
+
+        def call(url, token, body=None, timeout=2):
+            if url == 'http://supervisor/core/api/':
+                local_calls.append(url)
+                return {'message': 'API running.'}
+            if url == 'http://supervisor/core/api/template':
+                local_calls.append(url)
+                return True
+            response = self.call(url, token, body, timeout)
+            response.update(executor_ready=True, approved={'core': '2026.10.2'})
+            return response
+
+        self.c.supervisor = supervisor
+        self.c.call = call
+        self.runtime.step()
+        self.sent.clear()
+        local_calls.clear()
+        self.runtime.step()
+
+        self.assertEqual(len(self.sent), 1)
+        self.assertEqual(len(local_calls), 9)
+        self.assertTrue(self.sent[0]['report']['executor_ready'])
+        self.assertEqual(self.sent[0]['report']['applied'], self.snapshot)
+        self.assertNotIn('execution', self.sent[0]['report'])
+
+    def test_older_unmatched_reservation_is_reported_for_review(self):
+        self.c.clock = lambda: datetime(2026, 10, 18, 15, 5, tzinfo=timezone.utc).timestamp()
+        self.runtime.step()
+        operation = '89000000-0000-4000-8000-000000000001'
+        self.runtime.journal.reserve(operation, datetime.fromtimestamp(self.c.clock(), timezone.utc),
+            expected_revision=3, estimate_seconds=1800, locally_enabled=True,
+            authority_current=True, service_ready=True, active_use=False)
+
+        self.runtime.step()
+
+        self.assertEqual(read_observation(self.c.directory)['reason'], 'previous_outcome_unknown')
+        self.assertEqual(self.runtime.journal.read()['inflight']['operation_id'], operation)
 
     def test_opt_out_and_reenable_rotate_nonce_and_do_not_ack_old_file(self):
         self.runtime.step(); nonce = self.sent[0]['report']['management_id']

@@ -1,3 +1,9 @@
+## 0.2.9 · 24 November 2026 (candidate)
+
+- Resume verified maintenance bookkeeping after an interruption while preserving unresolved outcomes for review. Keep physical updates single-dispatch.
+- Recheck the exact available release and household choices before sending a backup, update or reboot request.
+- Avoid redundant maintenance requests when saved choices are unchanged and the update window is closed.
+
 ## 0.2.7 · 22 November 2026
 
 - Allow up to five minutes for Supervisor's synchronous Core configuration check instead of the ordinary 25-second request timeout.

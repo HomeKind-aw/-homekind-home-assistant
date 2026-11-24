@@ -29,7 +29,7 @@ class WindowSyncTests(unittest.TestCase):
 
     def test_offline_skipped_revisions_reconcile_idempotently_and_report_exact_choices(self):
         self.assertTrue(self.apply())
-        self.assertTrue(self.apply())
+        self.assertFalse(self.apply())
         value = report(self.journal, management_id='b' * 32, locally_enabled=True,
                        inventory=[], now=datetime(2026, 10, 18, 5, tzinfo=timezone.utc))
         self.assertEqual(value['applied_revision'], 4)

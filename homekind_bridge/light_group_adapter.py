@@ -138,12 +138,18 @@ class LightGroupAdapter:
                     return {"status": "receipt-pending"}
         if stopped():
             return {"status": "inactive"}
-        # Expired leases cannot be re-authorised by the backend. Retain recent
-        # evidence; prune only ended records when capacity is actually needed.
+        # Acknowledged commands with expired leases are terminal. Prefer to
+        # free their slots while retaining a full day of unresolved evidence.
+        available_records = records
         if len(records) >= 64:
-            records = [r for r in records if r["command"]["expires_at"] > bridge.clock() - 86400]
-            if len(records) >= 64:
-                raise GroupRejected("Group journal is full.")
+            now = bridge.clock()
+            available_records = [r for r in records if r["command"]["expires_at"] > now - 86400]
+            if len(available_records) >= 64:
+                ended = next((i for i, record in enumerate(available_records)
+                              if record["stage"] == "acked" and record["command"]["expires_at"] <= now), None)
+                if ended is None:
+                    raise GroupRejected("Group journal is full.")
+                del available_records[ended]
         response = self._cloud("poll", {})
         if not isinstance(response, dict) or "command" not in response:
             raise GroupRejected("Invalid group poll.")
@@ -155,6 +161,7 @@ class LightGroupAdapter:
             raise GroupRejected("Group lease ended.")
         if any(r["command"]["id"] == command["id"] for r in records):
             return {"status": "already-recorded"}
+        records = available_records
         scope = {**command, "entities": list(command["entities"])}
         record = {"command": scope, "bridge_id": credentials["bridge_id"], "generation": generation, "stage": "intent"}
         records.append(record)

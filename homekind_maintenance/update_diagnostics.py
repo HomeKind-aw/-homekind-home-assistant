@@ -62,7 +62,10 @@ def observe(companion, journal, executor, reason, response):
     try:
         now = companion.clock(); data = journal.read()
         phase = executor.job['phase'] if executor.job else None
-        if phase in ('healthy', 'failed', 'cancelled'):
+        reservation = data and data['inflight']
+        if reservation and (not executor.job or reservation['operation_id'] != executor.job['id']):
+            status = 'previous_outcome_unknown'
+        elif phase in ('healthy', 'failed', 'cancelled'):
             status = phase
         elif phase:
             status = 'previous_outcome_unknown' if phase == 'unknown' or phase.endswith('_dispatch') else 'update_in_progress'

@@ -23,9 +23,8 @@ def reconcile(journal, response, *, locally_enabled):
     if desired is None:
         return False
     current = journal.read()
-    journal.reconcile(desired, expected_revision=current['policy']['revision'] if current else 0,
-                      locally_enabled=locally_enabled, authority_current=True)
-    return True
+    return journal.reconcile(desired, expected_revision=current['policy']['revision'] if current else 0,
+                             locally_enabled=locally_enabled, authority_current=True)
 
 
 def report(journal, *, management_id, locally_enabled, inventory, now, executor_ready=False, execution=None, readiness=None):

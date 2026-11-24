@@ -1,3 +1,7 @@
+## 0.25.8 — 24 November 2026 (candidate)
+
+- Keep grouped lighting available when recent acknowledged commands fill the local journal. Preserve unresolved receipts and check for duplicates before reclaiming space.
+
 ## 0.25.7 — 22 November 2026
 
 - Apply a light’s colour and brightness together in a single routine action and confirm both reported values.

@@ -87,6 +87,20 @@ class MaintenanceTests(unittest.TestCase):
         self.c.step()
         self.assertEqual(self.c.data['records'][ID]['phase'], 'backup_done')
 
+    def test_unreadable_system_update_record_preserves_fence_and_connector_reporting(self):
+        from homekind_maintenance.maintenance import Companion
+
+        self.c = Companion(self.root / 'data', self.fake, lambda: self.now, self.options)
+        record = self.c.directory / 'system-update.json'
+        record.write_text('{incomplete')
+
+        self.c.step()
+
+        self.assertEqual(record.read_text(), '{incomplete')
+        self.assertEqual(self.posts('/maintenance')[-1]['operation'], 'report')
+        self.assertEqual(self.c.data['records'], {})
+        self.assertFalse(self.posts('/update'))
+
     def test_update_waits_for_verified_encrypted_connector_only_backup(self):
         self.backup_ready()
         self.assertFalse(self.posts('/update'))

@@ -9,6 +9,7 @@ import threading
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from uuid import UUID
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "homekind_bridge"))
 from light_group import PROTOCOL, GroupRejected
@@ -78,6 +79,34 @@ class AdapterTests(unittest.TestCase):
         self.start()
         self.adapter = LightGroupAdapter(self.bridge)
         self.assertEqual(self.start()["status"], "already-recorded")
+        self.assertEqual((self.sent, self.auth), (1, 1))
+
+    def test_expired_acknowledged_receipts_make_room_without_forgetting_uncertain_intent(self):
+        command = {key: value for key, value in self.claim.items() if key != 'status'}
+        previous = [
+            {'command': {**command, 'id': str(UUID(int=(1 << 62) | (4 << 76) | number)), 'expires_at': 99},
+             'bridge_id': 'bridge', 'generation': 2, 'stage': 'acked',
+             'members': {entity: 'confirmed' for entity in command['entities']}}
+            for number in range(10, 74)
+        ]
+        previous[0]['stage'] = 'intent'
+        previous[0].pop('members')
+        self.adapter._save(previous)
+        request = self.bridge.request
+
+        def authorise_new_intent(url, token, data=None, timeout=12):
+            if not url.endswith('group-authorise'):
+                return request(url, token, data, timeout)
+            self.auth += 1
+            self.assertEqual(self.adapter._load()[-1]['stage'], 'intent')
+            return {**self.claim, 'status': 'dispatched'}
+
+        self.bridge.request = authorise_new_intent
+        self.assertEqual(self.start()['status'], 'confirmed')
+        self.assertEqual(self.adapter._load()[0], previous[0])
+        self.assertEqual(len(self.adapter._load()), 64)
+        self.adapter = LightGroupAdapter(self.bridge)
+        self.assertEqual(self.start()['status'], 'already-recorded')
         self.assertEqual((self.sent, self.auth), (1, 1))
 
     def test_lost_receipt_retries_only_identical_receipt_after_restart(self):

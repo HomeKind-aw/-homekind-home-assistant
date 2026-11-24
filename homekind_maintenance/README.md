@@ -1,4 +1,4 @@
-# Belmelo Maintenance Companion 0.2.7
+# Belmelo Maintenance Companion 0.2.9 candidate
 
 22 November 2026: Core configuration validation now has a bounded five-minute
 timeout. A failed or unconfirmed check still holds installation; authority,

@@ -88,8 +88,7 @@ class WindowRuntime:
         try:
             executor = SystemUpdater(self.companion, self.journal)
             return executor.job is not None and executor.job['phase'] not in ('healthy', 'cancelled', 'failed')
-        except Exception:
-            observe(self.companion, self.journal, executor, reason, None)
+        except (OSError, WindowError):
             return True  # Retain an unverified operation fence.
 
     def step(self, allow_start=True):
@@ -119,21 +118,26 @@ class WindowRuntime:
         accept_approvals(response)
         def current_authority():
             current = self.local()
-            if current != local or self.companion.options().get('allow_system_updates') is not True:
+            if not allow_start or current != local or self.companion.options().get('allow_system_updates') is not True:
                 return False
             checked = executor.readiness()
-            r = self.exchange(local,self.inventory(True),checked == 'ready',executor.status(),checked)
+            r = self.exchange(local,inventory,checked == 'ready',executor.status(),checked)
             accept_approvals(r)
             data = self.journal.read()
             snapshot = None if data is None else {k:data[k] for k in ('policy','paused','defer_until')}
             return isinstance(r,dict) and not set(r)-{'protocol','authority_current','executor_ready','desired','approved'} and type(r['protocol']) is int and r['protocol']==1 and r['authority_current'] is True and r['executor_ready'] is True and r['desired']==snapshot and snapshot is not None
         executor.authorise = current_authority
         executor.approved = lambda component, version: approved.get(component) == version
-        if ready and response.get('executor_ready') is True or executor.job and executor.job['phase'] not in ('healthy','cancelled','failed'):
+        execution = executor.status()
+        have_job = execution is not None
+        failed = have_job and execution['phase'] == 'failed'
+        can_start = not have_job and executor.window_open(self.journal.read())
+        if (have_job and not failed) or (ready and response.get('executor_ready') is True and (failed or can_start)):
             executor.step()
-            # Recheck after a step; the operation may have taken Core offline.
-            checked = 'updates_disabled' if not enabled else 'connector_busy' if not allow_start else executor.readiness()
-            self.exchange(local,inventory,checked == 'ready',executor.status(),checked)
-            reason = checked
+            updated = executor.status()
+            if updated and updated != execution:
+                # A transition may have taken Core offline. Report it promptly.
+                reason = 'updates_disabled' if not enabled else 'connector_busy' if not allow_start else executor.readiness()
+                response = self.exchange(local, inventory, reason == 'ready', updated, reason)
         observe(self.companion, self.journal, executor, reason, response)
         return response
