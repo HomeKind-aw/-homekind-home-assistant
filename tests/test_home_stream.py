@@ -41,6 +41,27 @@ class StreamTests(unittest.TestCase):
             c.clock=lambda:NOW+11;c.stream_sync()
             self.assertEqual({r['entity_id'] for r in sent[-1]['states']},set(selected))
 
+    def test_heartbeat_preserves_queued_events_and_adds_only_unqueued_entities(self):
+        sent = []
+        tracked = [{'entity_id': entity} for entity in ('binary_sensor.lounge', 'sensor.temperature', 'sensor.office')]
+        def request(url, token, payload):
+            sent.append(payload)
+            return {'tracked': tracked}
+        with tempfile.TemporaryDirectory() as directory:
+            c = self.connector(directory, request=request, entity_ids=[row['entity_id'] for row in tracked])
+            c.tracked = tracked
+            c.stream_connected = True
+            c.accept_state(state())
+            first = dict(c.pending['binary_sensor.lounge'])
+            c.pending['older-event-key'] = {**first, 'event_id': 'older-event'}
+            c.current['sensor.temperature'] = state('sensor.temperature', '21', klass='temperature')
+            c.current['sensor.office'] = state('sensor.office', '22', klass='temperature')
+            c.stream_sync()
+            rows = sent[-1]['states']
+            self.assertEqual([row['entity_id'] for row in rows],
+                             ['binary_sensor.lounge', 'binary_sensor.lounge', 'sensor.temperature', 'sensor.office'])
+            self.assertEqual([row['event_id'] for row in rows[:2]], [first['event_id'], 'older-event'])
+
     def test_quiet_entity_heartbeat_survives_constant_other_device_changes(self):
         sent=[];clock=[NOW]
         def request(url,token,payload):
