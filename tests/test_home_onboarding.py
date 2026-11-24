@@ -171,10 +171,29 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(self.reports[-1][1]['candidates'], [])
 
     def test_no_device_catalogue_is_uploaded_outside_an_explicit_session(self):
-        fake = SimpleNamespace(credentials=json.loads(self.credentials), ha=lambda *a: [STATE])
-        with patch.object(ob, 'Connector', return_value=fake):
+        pending = self.manager.directory / 'pending.json'
+        pending.write_text('')  # Onboarding must not open the independent readings queue.
+        with patch.object(ob.Connector, 'ha', return_value=[STATE]), patch.object(self.worker, 'save') as save:
             self.worker.step()
+            self.worker.step()
+        self.assertEqual(len(self.reports), 2)
+        save.assert_not_called()
         self.assertEqual(self.reports[-1][1]['candidates'], [])
+
+    def test_ended_session_is_persisted_once_and_retried_after_a_write_failure(self):
+        self.worker.saved['session_id'] = SID
+        self.worker.save()
+        with patch.object(ob.Connector, 'ha', return_value=[STATE]):
+            with patch.object(self.worker, 'save', side_effect=OSError):
+                with self.assertRaises(OSError):
+                    self.worker.step()
+            self.assertEqual(self.worker.saved['session_id'], SID)
+
+            with patch.object(self.worker, 'save', wraps=self.worker.save) as save:
+                self.worker.step()
+                self.worker.step()
+                save.assert_called_once()
+        self.assertNotIn('session_id', json.loads(self.worker.path.read_text()))
 
     def test_cancelled_receipt_rolls_back_only_newly_appended_entities(self):
         self.worker.act(self.approved(), self.options)

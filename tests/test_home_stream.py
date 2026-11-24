@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "homekind_bridge"))
 spec = importlib.util.spec_from_file_location('homekind_bridge_stream', Path(__file__).parents[1]/'homekind_bridge/bridge.py')
@@ -100,6 +101,95 @@ class StreamTests(unittest.TestCase):
             c.stream_connected=True;c.stream_sync();self.assertEqual(calls[-1]['states'][0]['event_id'],event);self.assertEqual(c.pending,{})
             self.assertNotEqual(calls[-1].get('token'),'local-fixture-only')
 
+    def test_idle_heartbeats_leave_outbox_untouched_and_real_changes_are_durable(self):
+        queued_at_upload = []
+
+        def request(url, token, payload):
+            queued_at_upload.append(json.loads(c.outbox_file.read_text()) if c.outbox_file.exists() else {})
+            return {'tracked': [{'entity_id': 'binary_sensor.lounge'}]}
+
+        with tempfile.TemporaryDirectory() as directory:
+            c = self.connector(directory, request=request)
+            with patch.object(c, 'save_pending', wraps=c.save_pending) as save:
+                c.stream_sync()
+                c.stream_connected = True
+                c.next_sync = NOW
+                c.stream_sync()
+                save.assert_not_called()
+                self.assertFalse(c.outbox_file.exists())
+
+                c.accept_state(state())
+                c.stream_connected = False
+                c.stream_sync()
+                save.assert_called_once()
+                self.assertEqual(queued_at_upload[-1], c.pending)
+
+                c.stream_connected = True
+                c.stream_sync()
+                self.assertEqual(save.call_count, 2)
+                self.assertEqual(queued_at_upload[-1]['binary_sensor.lounge']['state'], 'on')
+                self.assertEqual(json.loads(c.outbox_file.read_text()), {})
+
+                c.clock = lambda: NOW + 10
+                c.stream_sync()
+                self.assertEqual(save.call_count, 4)
+                self.assertEqual(queued_at_upload[-1]['binary_sensor.lounge']['observed_at'], c.stamp())
+                self.assertEqual(json.loads(c.outbox_file.read_text()), {})
+
+    def test_first_sync_persists_pruning_after_restoring_the_outbox(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original = self.connector(directory)
+            original.accept_state(state())
+            c = self.connector(directory, entity_ids=[])
+            self.assertEqual(c.pending, {})
+            c.stream_sync()
+            self.assertEqual(json.loads(c.outbox_file.read_text()), {})
+
+    def test_idle_loop_waits_for_heartbeats_and_wakes_for_readings_and_reconnects(self):
+        for mode in ('idle', 'reading', 'reconnect'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                uploads, waits = [], []
+                now = NOW
+                interrupt_at = NOW + 12.25
+                stop = threading.Event()
+
+                def request(url, token, payload):
+                    uploads.append((now - NOW, payload['ha_connected'], len(payload['states'])))
+                    return {'tracked': [{'entity_id': 'binary_sensor.lounge'}]}
+
+                def wait(timeout):
+                    nonlocal now
+                    waits.append(timeout)
+                    if mode != 'idle' and now < interrupt_at <= now + timeout:
+                        now = interrupt_at
+                        if mode == 'reading':
+                            c.accept_state(state())
+                        else:
+                            c.stream_connected = True
+                            c.next_sync = 0
+                            c.wake.set()
+                        self.assertTrue(c.wake.is_set())
+                    else:
+                        now += timeout
+                    if now >= NOW + 30:
+                        stop.set()
+
+                c = self.connector(directory, request=request)
+                c.clock = lambda: now
+                c.stream_connected = mode != 'reconnect'
+                with patch.object(c.wake, 'wait', side_effect=wait), patch.object(c, 'enrol'), \
+                        patch.object(bridge, 'HAStream'), patch('system_health.SystemHealth'), patch('media_control.MediaControls'):
+                    c.run(stop_event=stop)
+
+                self.assertLessEqual(max(waits), 0.5)
+                if mode == 'idle':
+                    self.assertEqual(len(waits), 60)
+                    self.assertEqual(uploads, [(0, True, 0), (10, True, 0), (20, True, 0)])
+                elif mode == 'reading':
+                    self.assertIn((12.25, True, 1), uploads)
+                else:
+                    self.assertIn((12.25, True, 0), uploads)
+
     def test_cloud_error_retains_original_observation_and_revocation_stops(self):
         def failed(*args):raise bridge.AccessEnded('Access ended')
         with tempfile.TemporaryDirectory() as d:
@@ -112,6 +202,7 @@ class StreamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             c=self.connector(d,request=lambda u,t,p:(calls.append(p) or {'tracked':[]}));c.accept_state(state());c.tracked=[];c.stream_connected=True;c.stream_sync()
             self.assertEqual(calls[-1]['states'],[])
+            self.assertEqual(json.loads(c.outbox_file.read_text()), {})
 
     def test_registry_returns_only_safe_identity_metadata_for_allowlisted_entities(self):
         with tempfile.TemporaryDirectory() as d:

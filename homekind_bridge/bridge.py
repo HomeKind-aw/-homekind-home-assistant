@@ -22,7 +22,7 @@ import uuid
 import copy
 from control_transport import JsonConnections, HACommands, CommandWake, TransportError, TransportDenied, NotConnected
 
-VERSION = "0.25.8"
+VERSION = "0.25.9"
 MAX_PENDING = 250
 MAX_OUTBOX_AGE = 86400
 CLOUD_URL = "https://saixlksmjzbakopvbsqv.supabase.co/functions/v1/homekind-home-bridge"
@@ -259,7 +259,7 @@ def pending_key(reading):
     return entity
 
 class Connector:
-    def __init__(self, options, data_dir, request=request_json, sleeper=time.sleep, clock=time.time):
+    def __init__(self, options, data_dir, request=request_json, sleeper=time.sleep, clock=time.time, *, restore_outbox=True):
         self.options, self.request, self.sleep, self.clock = options, request, sleeper, clock
         self.native_transport = request is request_json
         self.cloud_root = CLOUD_URL
@@ -289,6 +289,7 @@ class Connector:
             raise BridgeError("Choose media controls from your selected media players.")
         self.outbox_file = self.directory / "pending.json"
         self.pending = {}
+        self.pending_dirty = False
         self.dropped = 0
         self.lock = threading.RLock()
         self.state_changed = threading.Condition(self.lock)
@@ -305,11 +306,12 @@ class Connector:
         self.button_status = {}
         self.stream = None
         self.media_worker = None
-        if self.outbox_file.exists():
+        if restore_outbox and self.outbox_file.exists():
             if self.outbox_file.stat().st_size > 512000:
                 raise BridgeError("The local pending readings file is too large. Stop and check the local installation.")
             saved = json.loads(self.outbox_file.read_text())
             self.pending = {k:v for k,v in saved.items() if isinstance(v, dict) and v.get("entity_id") in self.allowlist and k in (v["entity_id"], pending_key(v)) and safe_reading(v) and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
+            self.pending_dirty = len(self.pending) != len(saved)
 
         self.next_sync = 0
         self.backoff = 2
@@ -569,6 +571,7 @@ class Connector:
 
     def save_pending(self):
         atomic_json(self.outbox_file, self.pending)
+        self.pending_dirty = False
 
     def accept_state(self, state, observed_at=None):
         state = self.enrich(state)
@@ -600,6 +603,7 @@ class Connector:
                 return
             # Buttons keep each action; continuous sensors keep their latest state.
             self.pending[key] = clean
+            self.pending_dirty = True
             self.save_pending()
             self.wake.set()
 
@@ -633,7 +637,9 @@ class Connector:
     def stream_sync(self):
         with self.lock:
             tracked = {d["entity_id"] for d in self.tracked if self.collectable(d)} & self.allowlist
-            self.pending = {k:v for k,v in self.pending.items() if v.get("entity_id") in tracked and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
+            retained = {k:v for k,v in self.pending.items() if v.get("entity_id") in tracked and 0 <= self.clock()-utc_timestamp(v.get("observed_at")) < MAX_OUTBOX_AGE}
+            self.pending_dirty |= len(retained) != len(self.pending)
+            self.pending = retained
             heartbeat = self.clock() >= self.next_sync
             if self.stream_connected and heartbeat:
                 # Re-observe quiet entities every ten seconds, independently of busy inputs.
@@ -643,7 +649,9 @@ class Connector:
                         clean["observed_at"] = self.stamp()
                         clean["event_id"] = hashlib.sha256(json.dumps({k:v for k,v in clean.items() if k != "observed_at"}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
                         self.pending[pending_key(clean)] = clean
-                # Persist one heartbeat batch, rather than fsync once per cached entity.
+                        self.pending_dirty = True
+            # Persist new readings and pruning before sending the batch.
+            if self.pending_dirty:
                 self.save_pending()
             connected = self.stream_connected
             catalog = [{**catalog_entry(s), **self.registry.get(s["entity_id"], {})} for s in self.current.values() if safe_entity(s) and s["entity_id"] in self.allowlist]
@@ -668,11 +676,14 @@ class Connector:
                 for sent in batch:
                     key = pending_key(sent)
                     if self.pending.get(key, {}).get("event_id") == sent["event_id"]:
-                        self.pending.pop(key, None)
+                        del self.pending[key]
+                        self.pending_dirty = True
                     # Migrate a pending 0.10.0 button entry using its original identifier.
                     elif self.pending.get(sent["entity_id"], {}).get("event_id") == sent["event_id"]:
-                        self.pending.pop(sent["entity_id"], None)
-            self.save_pending()
+                        del self.pending[sent["entity_id"]]
+                        self.pending_dirty = True
+            if self.pending_dirty:
+                self.save_pending()
             if self.pending:
                 self.wake.set()
 
@@ -786,7 +797,9 @@ class Connector:
                     on_status("retrying")
                     next_attempt = self.clock() + self.backoff
                     self.backoff = min(self.backoff * 2, 30)
-                self.wake.wait(min(0.5, max(0.02, next_attempt - self.clock())))
+                with self.lock:
+                    next_poll = next_attempt if self.pending else max(next_attempt, self.next_sync)
+                self.wake.wait(min(0.5, max(0.02, next_poll - self.clock())))
             if self.failure:
                 raise self.failure
         finally:

@@ -356,7 +356,7 @@ class DeviceOnboarding:
             if not self.manager.paired():
                 return
             options = self.manager.options()
-            self.client = Connector(options, self.manager.directory, request=self.manager.request)
+            self.client = Connector(options, self.manager.directory, request=self.manager.request, restore_outbox=False)
             pending = self.saved.get("enrol_pending")
             if isinstance(pending, dict) and pending.get("new_management_id") == options.get("management_id") and set(pending.get("entity_ids", [])) <= set(options["entity_ids"]):
                 self.saved["receipt"] = pending
@@ -416,9 +416,13 @@ class DeviceOnboarding:
         directive = response.get("directive")
         if directive is None:
             self.close_pairing()
-            if not self.saved.get("receipt"):
-                self.saved.pop("session_id", None)
-                self.save()
+            if not self.saved.get("receipt") and "session_id" in self.saved:
+                session_id = self.saved.pop("session_id")
+                try:
+                    self.save()
+                except OSError:
+                    self.saved["session_id"] = session_id
+                    raise
             return
         self.act(directive, options)
         if self.network_setup is not None and isinstance(directive, dict) and directive.get("mode") == "existing" and directive.get("phase") in ("queued", "searching", "ready"):

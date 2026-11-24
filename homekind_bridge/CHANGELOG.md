@@ -1,3 +1,8 @@
+## 0.25.9 — 24 November 2026 (candidate)
+
+- Wait for the next heartbeat or upload deadline when the readings queue is empty, while waking for new readings and reconnections.
+- Write the readings queue and onboarding journal only when their saved data changes. The onboarding worker skips loading the readings queue.
+
 ## 0.25.8 — 24 November 2026 (candidate)
 
 - Keep grouped lighting available when recent acknowledged commands fill the local journal. Preserve unresolved receipts and check for duplicates before reclaiming space.
