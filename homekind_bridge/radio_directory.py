@@ -133,11 +133,19 @@ class RadioDirectory(threading.Thread):
         c = self.connector
         next_refresh = 0
         while not c.stopping():
-            if c.ready.wait(.2) and time.monotonic() >= next_refresh:
+            if not c.ready.wait(.2):
+                c.halt.wait(1)
+                continue
+            if c.stopping():
+                break
+            if time.monotonic() >= next_refresh:
                 try:
                     self.refresh()
                 except Exception:
                     self.set_status("unavailable")
                     logging.info("Radio stations are temporarily unavailable; media controls continue.")
-                next_refresh = time.monotonic() + (1800 if self.catalogue()["status"] == "ready" else 15)
-            c.halt.wait(1)
+                with self.lock:
+                    delay = 1800 if self.status == "ready" else 15
+                next_refresh = time.monotonic() + delay
+            # Connector cleanup signals halt for both local and external shutdown.
+            c.halt.wait(max(0, next_refresh - time.monotonic()))

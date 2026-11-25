@@ -3,12 +3,15 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).parents[1] / "homekind_bridge"
 sys.path.insert(0, str(ROOT))
 from radio_directory import RadioDirectory, station_choice, MAX_STATIONS
 from media_control import MediaControls, playback
+import radio_directory
 
 spec = importlib.util.spec_from_file_location('radio_bridge_test', ROOT / 'bridge.py')
 bridge = importlib.util.module_from_spec(spec)
@@ -62,6 +65,72 @@ class RadioTests(unittest.TestCase):
         radio = RadioDirectory(c, ['media_player.sonos']); radio.browse_media_source = lambda country: self.fail('must not browse without setup')
         radio.refresh(); self.assertEqual(radio.catalogue()['status'], 'setup'); self.assertIsNone(radio.resolve('a'*64))
         c.allowlist = set(); radio.refresh(); self.assertEqual(radio.catalogue()['status'], 'no-player')
+
+    def test_scheduled_wait_preserves_healthy_and_retry_refresh_intervals(self):
+        for interval in (1800, 15):
+            with self.subTest(interval=interval):
+                c = self.connector()
+                c.ready.set()
+                radio = RadioDirectory(c, c.allowlist)
+                now = 0
+                refreshes, waits = [], []
+
+                def refresh():
+                    refreshes.append(now)
+                    if interval == 15:
+                        raise RuntimeError('Optional directory unavailable')
+                    radio.set_status('ready')
+
+                def wait(delay):
+                    nonlocal now
+                    waits.append(delay)
+                    now += delay
+                    if now >= 2 * interval or len(waits) > 2:
+                        c.halt.set()
+
+                with patch.object(radio_directory.time, 'monotonic', side_effect=lambda: now), \
+                     patch.object(c.halt, 'wait', side_effect=wait), patch.object(radio, 'refresh', side_effect=refresh):
+                    radio.run()
+                self.assertEqual(refreshes, [0, interval])
+                self.assertEqual(waits, [interval, interval])
+
+    def test_connector_local_and_external_shutdown_wake_radio(self):
+        for ready in (True, False):
+            for external in (True, False):
+                with self.subTest(ready=ready, external=external):
+                    c = self.connector(lambda *args: {'tracked': [], 'commands': []})
+                    stop, waiting = threading.Event(), threading.Event()
+                    actual_wait = c.halt.wait
+                    if not ready:
+                        c.stream_sync = lambda: None
+
+                    def wait(delay=None):
+                        if threading.current_thread().name == 'homekind-radio' and (delay or 0) >= (1700 if ready else 1):
+                            waiting.set()
+                        return actual_wait(delay)
+
+                    def refresh(radio):
+                        radio.set_status('ready')
+
+                    worker = threading.Thread(target=c.run, kwargs={'stop_event': stop})
+                    with patch.object(c, 'enrol'), patch.object(bridge, 'HAStream'), \
+                         patch('system_health.SystemHealth'), patch.object(c.halt, 'wait', side_effect=wait), \
+                         patch.object(RadioDirectory, 'refresh', autospec=True, side_effect=refresh) as refresh_call:
+                        worker.start()
+                        try:
+                            self.assertTrue(waiting.wait(3), 'radio entered its expected wait')
+                            (stop if external else c.halt).set()
+                            worker.join(3)
+                            c.media_worker.radio.join(1)
+                            self.assertFalse(worker.is_alive())
+                            self.assertFalse(c.media_worker.radio.is_alive())
+                            self.assertEqual(refresh_call.call_count, int(ready))
+                        finally:
+                            stop.set()
+                            c.halt.set()
+                            worker.join(3)
+                            if c.media_worker:
+                                c.media_worker.radio.join(1)
 
     def test_websocket_authentication_and_browse_use_only_the_local_home_assistant(self):
         c = self.connector(); c.supervisor = True

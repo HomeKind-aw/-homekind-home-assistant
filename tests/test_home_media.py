@@ -4,6 +4,7 @@ import tempfile
 import threading
 import unittest
 import sys
+from unittest.mock import patch
 
 ROOT = Path(__file__).parents[1] / "homekind_bridge"
 sys.path.insert(0, str(ROOT))
@@ -34,6 +35,46 @@ class MediaTests(unittest.TestCase):
         worker.browse=lambda *args:self.fail('Favourite discovery blocked playback')
         worker.sync()
         self.assertTrue(any(url.endswith('media-sync') for url in calls))
+
+    def test_browse_copies_only_due_connected_and_allowed_players(self):
+        c = self.connector(lambda *args: {})
+        c.ready.set()
+        worker = media.MediaControls(c)
+        sonos, living = 'media_player.sonos', 'media_player.living'
+        c.current[living] = {**self.state(), 'entity_id': living}
+        c.allowlist.add(living)
+        worker.selected.add(living)
+        worker.browsed_at[living] = -180
+        now = 0
+        copies, browses = [], []
+
+        def copy_state(value):
+            copies.append((now, value['entity_id']))
+            return dict(value)
+
+        def browse(entity, state):
+            browses.append((now, entity))
+            if entity == sonos and now == 0:
+                raise RuntimeError('Optional browse failure')
+            worker.browsed_at[entity] = now
+
+        def wait(delay):
+            nonlocal now
+            now += delay
+            c.stream_connected = now != 1
+            if now == 2:
+                c.allowlist.remove(living)
+            if now == 3:
+                c.allowlist.add(living)
+            if now == 12:
+                c.halt.set()
+
+        with patch.object(media.time, 'monotonic', side_effect=lambda: now), \
+             patch.object(media, 'dict', side_effect=copy_state, create=True), \
+             patch.object(c.halt, 'wait', side_effect=wait), patch.object(worker, 'browse', side_effect=browse):
+            worker.browse_loop()
+        self.assertEqual(browses, [(0, sonos), (3, living), (11, sonos)])
+        self.assertEqual(copies, browses)
 
     def test_slow_media_poll_does_not_hold_up_playback_publishing(self):
         entered,release,published=[threading.Event() for _ in range(3)]
