@@ -207,19 +207,28 @@ class MediaControls(threading.Thread):
         while not c.stopping():
             if not c.ready.wait(.2):
                 continue
+            players = []
             with c.lock:
-                states = {key: dict(value) for key, value in c.current.items()
-                          if key in self.selected and key in c.allowlist and c.stream_connected}
-            for entity, state in states.items():
+                if c.stream_connected:
+                    players = [entity for entity in c.current if entity in self.selected and entity in c.allowlist]
+            for entity in players:
                 if c.stopping():
                     return
-                if time.monotonic() - self.browsed_at.get(entity, -1000) > 180:
-                    try:
-                        self.browse(entity, state)
-                        self.wake.set()
-                    except Exception:
-                        # Optional discovery cannot take down the playback publisher.
-                        self.browsed_at[entity] = time.monotonic() - 170
+                if time.monotonic() - self.browsed_at.get(entity, -1000) <= 180:
+                    continue
+                with c.lock:
+                    state = c.current.get(entity)
+                    if state is None or not c.stream_connected or entity not in c.allowlist:
+                        continue
+                    state = dict(state)
+                if c.stopping():
+                    return
+                try:
+                    self.browse(entity, state)
+                    self.wake.set()
+                except Exception:
+                    # Optional discovery cannot take down the playback publisher.
+                    self.browsed_at[entity] = time.monotonic() - 170
             c.halt.wait(1)
 
     def run(self):

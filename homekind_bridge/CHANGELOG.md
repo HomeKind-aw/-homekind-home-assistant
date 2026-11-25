@@ -1,3 +1,8 @@
+## 0.25.12 — 25 November 2026
+
+- Copy selected media-player state only when favourite discovery is due.
+- Wait for the scheduled radio refresh or connector shutdown. Keep the current refresh and retry intervals.
+
 ## 0.25.11 — 25 November 2026
 
 - Reuse the pending entity lookup during heartbeats and keep the existing reading order and queue limit.
