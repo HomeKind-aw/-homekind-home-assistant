@@ -142,9 +142,12 @@ class InstallTests(unittest.TestCase):
             root=Path(tmp);config=root/'config';config.mkdir()
             installer.prepare(source=ROOT/'custom_components/belmelo_voice',models=ROOT/'wake_words',config=config,data=root/'data')
             self.assertFalse((config/'custom_wake_words').exists())
+            destination=config/'custom_components/belmelo_voice'
+            self.assertFalse((destination/'prepare_hey_belle').exists())
             installer.prepare(pilot=True,source=ROOT/'custom_components/belmelo_voice',models=ROOT/'wake_words',config=config,data=root/'data')
             self.assertEqual(len(list((config/'custom_wake_words').iterdir())),2)
-            self.assertEqual(json.loads((config/'custom_components/belmelo_voice/manifest.json').read_text())['version'],'0.3.3')
+            self.assertTrue((destination/'prepare_hey_belle').is_file())
+            self.assertEqual(json.loads((destination/'manifest.json').read_text())['version'],'0.3.4')
     def test_preparation_failure_rolls_back_only_new_pilot_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);config=root/'config';config.mkdir();target=config/'custom_wake_words';target.mkdir()

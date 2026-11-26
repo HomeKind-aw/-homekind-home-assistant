@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 root=Path(__file__).resolve().parents[1]/'custom_components/belmelo_voice'
 pkg=types.ModuleType('satellite_tests');pkg.__path__=[str(root)];sys.modules[pkg.__name__]=pkg
-stubs={n:types.ModuleType(n) for n in ['homeassistant','homeassistant.components','homeassistant.components.assist_pipeline','homeassistant.helpers','homeassistant.helpers.entity_registry','homeassistant.helpers.event']}
+stubs={n:types.ModuleType(n) for n in ['homeassistant','homeassistant.components','homeassistant.components.assist_pipeline','homeassistant.components.persistent_notification','homeassistant.helpers','homeassistant.helpers.entity_registry','homeassistant.helpers.event']}
 stubs['homeassistant.helpers.event'].async_track_time_interval=Mock()
 with patch.dict(sys.modules,stubs):
     spec=importlib.util.spec_from_file_location('satellite_tests.satellite',root/'satellite.py');sat=importlib.util.module_from_spec(spec);sys.modules[spec.name]=sat;spec.loader.exec_module(sat)
@@ -36,11 +36,16 @@ class SatelliteTests(unittest.IsolatedAsyncioTestCase):
         self.pipeline=types.SimpleNamespace(id='own',name='Belle · Kitchen',prefer_local_intents=False,stt_engine='stt.belle',conversation_engine='conversation.belle',tts_engine='tts.belle')
         self.selected=types.SimpleNamespace(state=self.pipeline.name,attributes={'options':[self.pipeline.name]})
         self.hass=types.SimpleNamespace(data={'assist_satellite':types.SimpleNamespace(get_entity=lambda entity:self.satellite if entity=='assist_satellite.kitchen' else None)},states=types.SimpleNamespace(get=lambda entity:self.selected),services=types.SimpleNamespace(async_call=AsyncMock()))
-        self.entry=types.SimpleNamespace(data={'pipeline_id':'own'})
+        self.entry=types.SimpleNamespace(entry_id='paired-kitchen',title='Kitchen',data={'pipeline_id':'own'})
+        self.hass.config_entries=types.SimpleNamespace(async_update_entry=Mock(
+            side_effect=lambda entry, *, data: setattr(entry, 'data', data)))
+        self.hass.async_add_executor_job=AsyncMock(return_value=False)
         self.client=types.SimpleNamespace(endpoint='paired-endpoint',microphone='paired-kitchen',sync=AsyncMock(return_value={'test':None}))
         self.connection=sat.SatelliteConnection(self.hass,self.entry,self.client)
         self.entries=[types.SimpleNamespace(domain='assist_satellite',disabled_by=None,entity_id='assist_satellite.kitchen'),types.SimpleNamespace(domain='select',disabled_by=None,entity_id='select.kitchen_assistant')]
         self.patches=[patch.object(sat.er,'async_get',return_value=self.registry,create=True),patch.object(sat.er,'async_entries_for_device',return_value=self.entries,create=True),patch.object(sat.assist_pipeline,'async_get_pipelines',return_value=[self.pipeline],create=True)]
+        self.patches.extend(patch.object(sat.persistent_notification, name, create=True)
+                            for name in ('async_create', 'async_dismiss'))
         for p in self.patches:p.start()
     async def asyncTearDown(self):
         await self.connection.close()
@@ -51,6 +56,58 @@ class SatelliteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await self.connection.select_word('jarvis'))
         self.assertEqual(self.satellite.async_set_configuration.call_args.args[0].active_wake_words,['jarvis'])
         self.assertEqual(sat.er.async_entries_for_device.call_args.args[1],'paired-kitchen')
+
+    async def test_prepare_waits_for_advertised_model_and_confirms_once(self):
+        self.hass.async_add_executor_job.return_value=True
+        await self.connection.poll()
+        self.satellite.async_set_configuration.assert_not_awaited()
+        self.config.available_wake_words.append(Word(sat.HEY_BELLE, 'Hey Belle'))
+        await self.connection.poll()
+        self.assertEqual(self.satellite.async_set_configuration.await_args.args[0].active_wake_words,[sat.HEY_BELLE])
+        await self.connection.poll()
+        self.assertNotIn(sat.WAKE_SETUP_FINISHED,self.entry.data)
+        self.satellite.async_set_configuration.assert_awaited_once()
+        self.config.active_wake_words=[sat.HEY_BELLE]
+        await self.connection.poll()
+        self.assertTrue(self.entry.data[sat.WAKE_SETUP_FINISHED])
+        self.assertEqual(self.client.sync.await_args.args[0]['active_wake_word'],sat.HEY_BELLE)
+        await self.connection.close()
+        self.connection=sat.SatelliteConnection(self.hass,self.entry,self.client)
+        self.config.active_wake_words=['jarvis']
+        await self.connection.poll()
+        self.satellite.async_set_configuration.assert_awaited_once()
+
+    async def test_auto_wake_requires_prepare_and_an_enabled_ready_pipeline(self):
+        self.config.available_wake_words.append(Word(sat.HEY_BELLE, 'Hey Belle'))
+        await self.connection.poll()
+        self.satellite.async_set_configuration.assert_not_awaited()
+        self.connection.auto_wake_enabled=True
+        self.selected.state='Home Assistant'
+        await self.connection.poll()
+        self.selected.state=self.pipeline.name
+        self.client.sync.return_value={'enabled':False}
+        await self.connection.poll()
+        self.client.sync.return_value={'test':{'id':'test','mode':'single_phrase'}}
+        await self.connection.poll()
+        self.satellite.async_set_configuration.assert_not_awaited()
+
+    async def test_advanced_choice_supersedes_automatic_setup(self):
+        self.connection.auto_wake_enabled=True
+        self.config.available_wake_words.append(Word(sat.HEY_BELLE, 'Hey Belle'))
+        self.client.sync.return_value={'wake_word':'jarvis'}
+        await self.connection.poll()
+        self.client.sync.return_value={}
+        await self.connection.poll()
+        self.satellite.async_set_configuration.assert_awaited_once()
+        self.assertEqual(self.satellite.async_set_configuration.await_args.args[0].active_wake_words,['jarvis'])
+
+    async def test_unsupported_model_produces_one_actionable_notice(self):
+        self.connection.auto_wake_enabled=True
+        for _ in range(8):
+            await self.connection.poll()
+        self.satellite.async_set_configuration.assert_not_awaited()
+        sat.persistent_notification.async_create.assert_called_once()
+        self.assertIn('firmware',sat.persistent_notification.async_create.call_args.args[1])
     async def test_runtime_checks_all_engines_and_current_local_selection(self):
         self.assertTrue(self.connection.runtime()['pipeline_ready'])
         self.selected.state='Home Assistant'
