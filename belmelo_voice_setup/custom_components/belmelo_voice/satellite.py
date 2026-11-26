@@ -3,13 +3,17 @@ import asyncio
 from dataclasses import replace
 from datetime import timedelta
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
-from homeassistant.components import assist_pipeline
+from homeassistant.components import assist_pipeline, persistent_notification
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_time_interval
 from .const import DOMAIN
 
 VERSION = '0.3.0'
+HEY_BELLE = 'belmelo_hey_belle_pilot_v1'
+WAKE_SETUP_FINISHED = 'wake_setup_finished'
+PREPARE_MARKER = Path(__file__).with_name('prepare_hey_belle')
 
 class SatelliteConnection:
     def __init__(self, hass, entry, client):
@@ -22,6 +26,50 @@ class SatelliteConnection:
         self.lock = asyncio.Lock()
         self.closed = False
         self.connection_id = None
+        self.auto_wake_enabled = None
+        self.wake_setup_polls = 0
+        self.wake_setup_attempted = False
+        self.wake_setup_notice = False
+
+    @property
+    def wake_notice_id(self):
+        return f'{DOMAIN}_wake_{self.entry.entry_id}'
+
+    def finish_wake_setup(self):
+        if not self.entry.data.get(WAKE_SETUP_FINISHED):
+            self.hass.config_entries.async_update_entry(
+                self.entry, data={**self.entry.data, WAKE_SETUP_FINISHED: True}
+            )
+            persistent_notification.async_dismiss(self.hass, self.wake_notice_id)
+
+    async def prepare_wake(self, runtime):
+        """Apply the installer default once, after the paired device advertises it."""
+        if self.entry.data.get(WAKE_SETUP_FINISHED) or not runtime['pipeline_ready']:
+            return
+        if self.auto_wake_enabled is None:
+            self.auto_wake_enabled = await self.hass.async_add_executor_job(PREPARE_MARKER.is_file)
+        if self.closed or not self.auto_wake_enabled or not self.pipeline_ready():
+            return
+        if runtime['active_wake_word'] == HEY_BELLE:
+            self.finish_wake_setup()
+            return
+        if not self.wake_setup_attempted and any(word['id'] == HEY_BELLE for word in runtime['wake_words']):
+            self.wake_setup_attempted = True
+            self.wake_setup_polls = 0
+            await self.select_word(HEY_BELLE)
+            return
+        self.wake_setup_polls += 1
+        if self.wake_setup_polls >= 5 and not self.wake_setup_notice:
+            self.wake_setup_notice = True
+            if self.wake_setup_attempted:
+                message = 'The microphone has yet to confirm Hey Belle. Check that it is online and try again from its room microphone settings in Belmelo.'
+            elif runtime['wake_words']:
+                message = 'The microphone has yet to offer Hey Belle. Check that its ESPHome firmware supports custom wake phrases.'
+            else:
+                message = 'The microphone has yet to report its wake phrases. Check that it is online in Home Assistant.'
+            persistent_notification.async_create(
+                self.hass, message, title=f'Hey Belle · {self.entry.title}', notification_id=self.wake_notice_id
+            )
 
     async def connect(self, request):
         """One explicit, expiring choice; select only this entry's Belle pipeline."""
@@ -109,7 +157,8 @@ class SatelliteConnection:
         async with self.lock:
             event = self.events[0] if self.events else None
             try:
-                response = await self.client.sync(self.runtime(), event)
+                runtime = self.runtime()
+                response = await self.client.sync(runtime, event)
             except Exception:
                 # No audio, tokens, transcripts or provider responses in logs.
                 return
@@ -128,8 +177,14 @@ class SatelliteConnection:
             word = response.get('wake_word')
             if word and not test:
                 try:
-                    await self.select_word(word)
+                    if await self.select_word(word) and word != HEY_BELLE:
+                        self.finish_wake_setup()
                 except Exception:
+                    pass
+            elif not test and response.get('enabled', True):
+                try:
+                    await self.prepare_wake(runtime)
+                except (AttributeError, NotImplementedError, TimeoutError, ValueError):
                     pass
             if test and test.get('mode') != 'single_phrase' and test.get('status') == 'waiting' and test.get('id') != self.test_id:
                 self.test_id = test['id']

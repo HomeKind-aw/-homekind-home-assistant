@@ -1,5 +1,5 @@
 name: Belmelo Voice setup
-version: 0.3.3
+version: 0.3.4
 slug: belmelo_voice_setup
 description: Prepare Belle once, then connect and check your room microphone in Belmelo.
 url: https://github.com/HomeKind-aw/-homekind-home-assistant/tree/main/belmelo_voice_setup

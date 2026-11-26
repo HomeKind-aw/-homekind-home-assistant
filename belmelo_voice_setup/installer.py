@@ -75,7 +75,7 @@ def install_models(source=MODEL_SOURCE, config=Path('/homeassistant')):
         shutil.rmtree(staged)
     return len(created)
 
-def install(source=Path('/opt/belmelo/custom_components/belmelo_voice'), config=Path('/homeassistant'), data=Path('/data')):
+def install(source=Path('/opt/belmelo/custom_components/belmelo_voice'), config=Path('/homeassistant'), data=Path('/data'), *, auto_wake=False):
     if source.is_symlink() or not source.is_dir():
         raise ValueError('The packaged integration is unavailable.')
     files = list(source.rglob('*'))
@@ -99,6 +99,8 @@ def install(source=Path('/opt/belmelo/custom_components/belmelo_voice'), config=
     staged = parent / ('belmelo_voice_setup_' + secrets.token_hex(8))
     shutil.copytree(source, staged)
     try:
+        if auto_wake or (target / 'prepare_hey_belle').is_file():
+            (staged / 'prepare_hey_belle').touch()
         if target.exists():
             data.mkdir(exist_ok=True)
             shutil.copytree(target, data / ('belmelo_voice_backup_' + str(time.time_ns())))
@@ -127,7 +129,7 @@ def prepare(*, pilot=False, source=Path('/opt/belmelo/custom_components/belmelo_
             install_models(models, config)
             created = [p for p in target.iterdir() if p.name not in before
                 and p.name in {word+suffix for word in MODEL_IDS for suffix in ('.json', '.tflite')}]
-        install(source, config, data)
+        install(source, config, data, auto_wake=pilot)
     except Exception:
         # Roll back only exact package files newly added by this action.
         for path in created:
@@ -140,13 +142,13 @@ class Handler(BaseHTTPRequestHandler):
     def page(self, message='', status=200):
         body = ('<!doctype html><html lang="en-AU"><meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>Belmelo Voice setup</title><style>body{font:18px system-ui;line-height:1.55;background:#faf8f4;color:#333;margin:0;padding:24px}main{max-width:620px;margin:auto}button{padding:14px 22px;border:0;border-radius:16px;background:#665180;color:white;font:inherit}li{margin:12px 0}.status{padding:16px;background:#ece7f2;border-radius:16px}</style><main>'
-            '<h1>Prepare Belle</h1><p>One setup action, then return to Belmelo to connect your microphone and hear its reply.</p>'
+            '<h1>Prepare Belle</h1><p>Set up Hey Belle for your room microphones.</p>'
             + ('<p class="status" role="status">' + html.escape(message) + '</p>' if message else '')
             + '<form method="post"><input type="hidden" name="nonce" value="' + NONCE + '"><input type="hidden" name="operation" value="prepare">'
-            + ('<input type="hidden" name="pilot" value="yes"><p>Includes the Hey Belle pilot wake phrase for new microphones.</p>' if (MODEL_SOURCE/'release.json').is_file() else '')
+            + ('<input type="hidden" name="pilot" value="yes">' if (MODEL_SOURCE/'release.json').is_file() else '')
             + '<button>Prepare Belle</button></form>'
             '<ol><li>Restart Home Assistant once from Settings → System after preparation.</li><li><a href="https://app.belmelo.com/household?room-microphones=1" target="_blank" rel="noopener">Return to room microphones in Belmelo</a>. Your saved connection picks up from there.</li></ol>'
-            '<details><summary>What is included?</summary><p>Only the Belmelo Voice integration and any pilot model you selected. Existing pairing, microphone firmware, home controls and sharing choices are kept. Home Assistant is not restarted automatically. You can remove this setup app after connecting.</p></details>'
+            '<details><summary>What happens next?</summary><p>After the restart, compatible microphones connected to Belle will select Hey Belle automatically for their first setup. Pairing and sharing choices stay in place. You can change the phrase later in Belmelo.</p></details>'
             + '</main></html>').encode()
         self.send_response(status)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
